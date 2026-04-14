@@ -26,30 +26,7 @@ import type {
   ClinicalContext,
 } from '@/lib/models';
 
-// ── Initial state ──────────────────────────────────────────────────────────
-
-const INITIAL_NODULES: Nodule[] = [
-  {
-    d: 21, nt: 'solid', loc: 'lower', sp: false, edges: 'lobulated',
-    pet: 'intense', suv: 6.4, s1: 10, s2: 21, d1: '2025-07-01', d2: '2026-04-01',
-    den: 'gt_neg30', enh: 'lt15',
-  },
-  {
-    d: 14, nt: 'solid', loc: 'lower', sp: false, edges: 'lobulated',
-    pet: 'faint', suv: 2.1, s1: 0, s2: 14, d1: '2025-07-01', d2: '2026-04-01',
-    den: 'gt_neg30', enh: 'lt15',
-  },
-];
-
-const INITIAL_DS: DataSwitches = { pet: true, vdt: true, enh: false, den: false };
-
-const INITIAL_PATIENT: PatientInputs = {
-  age: 60, sex: 'female', smoker: 'never', packyears: 0,
-  priorcancer: false, familyhx: false, emphysema: false,
-  ctx: 'incidental', prior: 30,
-};
-
-// ── Blank state (used by Clear button) ────────────────────────────────────
+// ── Blank state ────────────────────────────────────────────────────────────
 
 const BLANK_NODULES: Nodule[] = [];
 const BLANK_DS: DataSwitches = { pet: false, vdt: false, enh: false, den: false };
@@ -82,12 +59,13 @@ interface TTState {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const [ds, setDs] = useState<DataSwitches>(INITIAL_DS);
-  const [nodules, setNodules] = useState<Nodule[]>(INITIAL_NODULES);
-  const [patient, setPatient] = useState<PatientInputs>(INITIAL_PATIENT);
+  const [ds, setDs] = useState<DataSwitches>(BLANK_DS);
+  const [nodules, setNodules] = useState<Nodule[]>(BLANK_NODULES);
+  const [patient, setPatient] = useState<PatientInputs>(BLANK_PATIENT);
   const [selIdx, setSelIdx] = useState<number>(0);
   const [manualSel, setManualSel] = useState<boolean>(false);
   const [tt, setTT] = useState<TTState | null>(null);
+  const [activeTab, setActiveTab] = useState<'inputs' | 'results'>('inputs');
 
   // Derive selIdx when not manual
   const effectiveSelIdx = manualSel ? selIdx : autoSelect(nodules, patient, ds);
@@ -148,15 +126,12 @@ export default function Home() {
     setPatient(BLANK_PATIENT);
     setSelIdx(0);
     setManualSel(false);
+    setActiveTab('inputs');
     closeTT();
   }
 
   function openTT(noduleIndex: number, btn: HTMLButtonElement) {
-    // Toggle: if already open for the same nodule, close it
-    if (tt && tt.noduleIndex === noduleIndex) {
-      closeTT();
-      return;
-    }
+    if (tt && tt.noduleIndex === noduleIndex) { closeTT(); return; }
     if (tt) tt.activeBtnEl.classList.remove('active');
     btn.classList.add('active');
     setTT({ noduleIndex, anchorRect: btn.getBoundingClientRect(), activeBtnEl: btn });
@@ -169,7 +144,6 @@ export default function Home() {
 
   function handleEdgeSelect(noduleIndex: number, edge: EdgeKey) {
     handleNoduleChange(noduleIndex, 'edges', edge);
-    // Update anchorRect in case tooltip needs to refresh, keep it open
     setTT((prev) => (prev ? { ...prev, noduleIndex } : null));
   }
 
@@ -179,7 +153,7 @@ export default function Home() {
     setPatient((prev) => ({ ...prev, [key]: value }));
   }
 
-  // ── Form readiness — required before running any model ───────────────
+  // ── Form readiness ────────────────────────────────────────────────────
 
   const formReady =
     nodules.length > 0 &&
@@ -187,7 +161,7 @@ export default function Home() {
     patient.smoker !== '' &&
     patient.ctx !== '';
 
-  // ── Computed results for selected nodule (only when form is complete) ─
+  // ── Computed results (only when form is complete) ─────────────────────
 
   const activeNodule = nodules[effectiveSelIdx] ?? nodules[0];
   const M = formReady ? mayoFor(activeNodule, patient) : 0;
@@ -212,11 +186,28 @@ export default function Home() {
   return (
     <>
       <header>
-        <div className="hdr-left">
-          <h1>Pulmonary Nodule Malignancy Risk</h1>
-          <p>Mayo · Brock · Herder · BIMC · Fleischner 2017 · BTS VDT &nbsp;·&nbsp; For qualified clinician use only</p>
+        <div className="hdr-row">
+          <div className="hdr-left">
+            <h1>Pulmonary Nodule Malignancy Risk</h1>
+            <p>Mayo · Brock · Herder · BIMC · Fleischner 2017 · BTS VDT · Clinician use only</p>
+          </div>
+          <button className="clear-btn" onClick={resetForm}>Clear</button>
         </div>
-        <button className="clear-btn" onClick={resetForm}>Clear</button>
+        {/* Tab bar — only rendered on mobile via CSS */}
+        <nav className="tab-bar">
+          <button
+            className={'tab-btn' + (activeTab === 'inputs' ? ' active' : '')}
+            onClick={() => setActiveTab('inputs')}
+          >
+            Patient &amp; Nodule
+          </button>
+          <button
+            className={'tab-btn' + (activeTab === 'results' ? ' active' : '') + (formReady ? ' tab-ready' : '')}
+            onClick={() => setActiveTab('results')}
+          >
+            Results {formReady && <span className="tab-dot" />}
+          </button>
+        </nav>
       </header>
 
       {tt && (
@@ -231,7 +222,7 @@ export default function Home() {
 
       <div className="main">
         {/* ── Left panel: inputs ── */}
-        <div className="inp">
+        <div className={'inp' + (activeTab === 'results' ? ' tab-hidden' : '')}>
 
           {/* Available data toggles */}
           <div className="slbl">Available data</div>
@@ -266,9 +257,10 @@ export default function Home() {
               <input
                 type="number"
                 id="age"
-                value={patient.age}
+                value={patient.age || ''}
                 min={18}
                 max={99}
+                placeholder="—"
                 onChange={(e) => setPatientField('age', parseFloat(e.target.value) || 0)}
               />
             </div>
@@ -304,8 +296,9 @@ export default function Home() {
               <input
                 type="number"
                 id="packyears"
-                value={patient.packyears}
+                value={patient.packyears || ''}
                 min={0}
+                placeholder="0"
                 onChange={(e) => setPatientField('packyears', parseFloat(e.target.value) || 0)}
               />
             </div>
@@ -423,10 +416,19 @@ export default function Home() {
               />
             </div>
           </div>
+
+          {/* Mobile: View Results button */}
+          <button
+            className={'view-results-btn' + (formReady ? ' ready' : '')}
+            onClick={() => setActiveTab('results')}
+            disabled={!formReady}
+          >
+            {formReady ? 'View Results →' : 'Complete form to see results'}
+          </button>
         </div>
 
         {/* ── Right panel: results ── */}
-        <div className="res">
+        <div className={'res' + (activeTab === 'inputs' ? ' tab-hidden' : '')}>
           {formReady ? (
             <ResultsTable
               patient={patient}
