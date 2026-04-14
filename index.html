@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pulmonary Nodule Risk Calculator</title>
+<style>
+  :root {
+    --bg:#f8f7f4;--surface:#fff;--surface2:#f2f1ee;
+    --border:rgba(0,0,0,.10);--border2:rgba(0,0,0,.20);
+    --text:#1a1917;--text2:#5a5955;--text3:#8a8984;
+    --accent:#1a5a8a;--accent-bg:#e8f1f8;--accent-bd:#5ba4de;
+    --low:#1a6e3a;--low-bg:#e8f5ee;
+    --int:#8a5a00;--int-bg:#fdf3d8;
+    --high:#a02020;--high-bg:#faeaea;
+    --radius:10px;--rsm:6px;
+  }
+  @media(prefers-color-scheme:dark){:root{
+    --bg:#16150f;--surface:#221f18;--surface2:#2e2b22;
+    --border:rgba(255,255,255,.09);--border2:rgba(255,255,255,.20);
+    --text:#ede9df;--text2:#a09c90;--text3:#6a6760;
+    --accent:#5ba4de;--accent-bg:#152232;--accent-bd:#5ba4de;
+    --low:#4caf72;--low-bg:#0f2318;
+    --int:#e0aa40;--int-bg:#271e08;
+    --high:#e06060;--high-bg:#2a1010;
+  }}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Georgia',serif;background:var(--bg);color:var(--text);min-height:100vh;}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 22px;display:flex;align-items:baseline;gap:14px;position:sticky;top:0;z-index:100;}
+  header h1{font-size:16px;font-weight:600;letter-spacing:-.02em;}
+  header p{font-size:11px;color:var(--text3);font-family:sans-serif;}
+  .main{display:grid;grid-template-columns:360px 1fr;min-height:calc(100vh - 49px);}
+  @media(max-width:900px){.main{grid-template-columns:1fr;}}
+  .inp{background:var(--surface);border-right:1px solid var(--border);padding:15px 14px 32px;overflow-y:auto;max-height:calc(100vh - 49px);position:sticky;top:49px;}
+  @media(max-width:900px){.inp{position:static;max-height:none;border-right:none;border-bottom:1px solid var(--border);}}
+  .res{padding:16px 18px;}
+  .slbl{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);font-family:sans-serif;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+  .slbl:first-child{margin-top:0;}
+  /* Toggles */
+  .tog-grid{display:grid;gap:5px;margin-bottom:2px;}
+  .tog{display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rsm);padding:6px 9px;cursor:pointer;user-select:none;transition:border-color .15s;}
+  .tog:hover{border-color:var(--border2);}
+  .tog.on{border-color:var(--accent-bd);background:var(--accent-bg);}
+  .tog-lbl{font-family:sans-serif;display:flex;flex-direction:column;gap:1px;}
+  .tog-lbl strong{font-size:11px;color:var(--text);font-weight:600;}
+  .tog-lbl span{font-size:10px;color:var(--text3);}
+  .sw{width:32px;height:18px;background:var(--border2);border-radius:9px;position:relative;transition:background .2s;flex-shrink:0;}
+  .sw::after{content:'';position:absolute;width:12px;height:12px;background:#fff;border-radius:50%;top:3px;left:3px;transition:transform .2s;}
+  .tog.on .sw{background:var(--accent);}
+  .tog.on .sw::after{transform:translateX(14px);}
+  /* Fields */
+  .fg{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:2px;}
+  .fg.c1{grid-template-columns:1fr;}
+  .fg.c3{grid-template-columns:1fr 1fr 1fr;}
+  .fld{display:flex;flex-direction:column;gap:2px;}
+  .fld-lr{display:flex;align-items:center;gap:5px;}
+  .fld label{font-size:10px;color:var(--text2);font-family:sans-serif;}
+  select,input[type=number]{font-size:12px;font-family:sans-serif;padding:5px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);width:100%;outline:none;transition:border-color .15s;}
+  select:focus,input[type=number]:focus{border-color:var(--accent);}
+  select.synced{border-color:var(--accent-bd);background:var(--accent-bg);}
+  /* Info button */
+  .info-btn{width:16px;height:16px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);color:var(--text3);font-size:10px;font-family:sans-serif;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;line-height:1;padding:0;}
+  .info-btn:hover,.info-btn.active{background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bd);}
+  .info-btn.active{background:var(--accent);color:#fff;}
+  /* Edge tooltip */
+  #edge-tt{display:none;position:fixed;z-index:500;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:0 8px 32px rgba(0,0,0,.18);padding:14px 15px;width:520px;max-width:calc(100vw - 20px);}
+  .ett-title{font-size:11px;font-weight:700;font-family:sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);margin-bottom:11px;}
+  .ett-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;}
+  .ett-card{display:flex;flex-direction:column;align-items:center;gap:4px;padding:7px 3px;border-radius:var(--rsm);border:1px solid var(--border);background:var(--surface2);cursor:pointer;transition:border-color .15s;}
+  .ett-card:hover{border-color:var(--accent-bd);}
+  .ett-card.sel{border-color:var(--accent);background:var(--accent-bg);}
+  .ett-name{font-size:10px;font-weight:600;font-family:sans-serif;color:var(--text);text-align:center;line-height:1.2;}
+  .ett-lr{font-size:9px;font-family:sans-serif;text-align:center;}
+  .ett-lr.hi{color:var(--high);}
+  .ett-lr.intc{color:var(--int);}
+  .ett-lr.low{color:var(--low);}
+  .ett-desc{font-size:11px;font-family:sans-serif;color:var(--text2);line-height:1.5;margin-top:9px;padding:8px 10px;background:var(--surface2);border-radius:var(--rsm);min-height:42px;}
+  .ett-note{font-size:10px;font-family:sans-serif;color:var(--text3);margin-top:7px;line-height:1.5;}
+  #ett-overlay{display:none;position:fixed;inset:0;z-index:499;}
+  /* Nodule count */
+  .ncount-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+  .ncount-row label{font-size:11px;font-family:sans-serif;color:var(--text2);}
+  .ncount-ctrl{display:flex;align-items:center;border:1px solid var(--border);border-radius:var(--rsm);overflow:hidden;}
+  .ncount-btn{background:var(--surface2);border:none;color:var(--text);font-size:16px;width:28px;height:28px;cursor:pointer;font-family:sans-serif;}
+  .ncount-btn:hover{background:var(--border2);}
+  .ncount-val{font-size:13px;font-family:sans-serif;font-weight:600;width:28px;text-align:center;color:var(--text);border-left:1px solid var(--border);border-right:1px solid var(--border);line-height:28px;}
+  .auto-badge{font-size:10px;font-family:sans-serif;padding:2px 7px;border-radius:3px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-bd);cursor:pointer;margin-left:auto;}
+  .auto-badge:hover{background:var(--accent);color:#fff;}
+  /* Nodule cards */
+  .nod-cards{display:flex;flex-direction:column;gap:8px;}
+  .ncard{border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s;}
+  .ncard.selected{border-color:var(--accent-bd);}
+  .ncard-hdr{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);cursor:pointer;user-select:none;}
+  .ncard.selected .ncard-hdr{background:var(--accent-bg);}
+  .nnum{font-size:12px;font-weight:600;font-family:sans-serif;color:var(--text);}
+  .nsel-dot{width:10px;height:10px;border-radius:50%;border:2px solid var(--border2);flex-shrink:0;}
+  .ncard.selected .nsel-dot{background:var(--accent);border-color:var(--accent);}
+  .nidx-badge{font-size:9px;font-family:sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:3px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-bd);}
+  .nscore-badge{font-size:10px;font-family:sans-serif;font-weight:600;margin-left:auto;}
+  .nscore-badge.hi{color:var(--high);}
+  .nscore-badge.intc{color:var(--int);}
+  .nscore-badge.low{color:var(--low);}
+  .ncard-body{padding:10px;display:flex;flex-direction:column;gap:7px;}
+  .ncard-sep{height:1px;background:var(--border);margin:2px 0;}
+  /* Results */
+  .sum-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:15px;}
+  .met{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 13px;}
+  .met-lbl{font-size:10px;color:var(--text3);font-family:sans-serif;margin-bottom:3px;}
+  .met-val{font-size:20px;font-weight:600;font-family:sans-serif;letter-spacing:-.03em;}
+  .met-val.hi{color:var(--high);}
+  .met-val.intc{color:var(--int);}
+  .met-val.low{color:var(--low);}
+  .met-sub{font-size:10px;color:var(--text3);font-family:sans-serif;margin-top:2px;}
+  .rtbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:13px;}
+  table{width:100%;border-collapse:collapse;font-family:sans-serif;}
+  thead{background:var(--surface2);}
+  th{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:7px 12px;text-align:left;border-bottom:1px solid var(--border);}
+  td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  tr.off td{opacity:.40;background:var(--surface2);}
+  tr:not(.off):hover td{background:var(--surface2);}
+  tr.has-warn{border-left:3px solid var(--int);}
+  tr.has-err{border-left:3px solid var(--high);}
+  .mname{font-size:13px;font-weight:600;font-family:'Georgia',serif;color:var(--text);}
+  .mref{font-size:10px;color:var(--text3);font-family:sans-serif;margin-top:2px;}
+  .mvars{font-size:10px;color:var(--text3);font-family:sans-serif;margin-top:2px;font-style:italic;}
+  .pval{font-size:20px;font-weight:700;font-family:sans-serif;letter-spacing:-.02em;}
+  .psub{font-size:10px;color:var(--text3);font-family:sans-serif;margin-top:1px;}
+  .pill{display:inline-block;font-size:10px;font-weight:600;font-family:sans-serif;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+  .pill.low{background:var(--low-bg);color:var(--low);}
+  .pill.intc{background:var(--int-bg);color:var(--int);}
+  .pill.high{background:var(--high-bg);color:var(--high);}
+  .pill.na{background:var(--surface2);color:var(--text3);}
+  .tnote{font-size:10px;color:var(--text3);font-family:sans-serif;}
+  .needs-tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-family:sans-serif;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:4px 9px;}
+  /* Warning chips */
+  .wchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;}
+  .wchip{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-family:sans-serif;font-weight:600;padding:2px 6px;border-radius:3px;line-height:1.4;}
+  .wchip.e{background:var(--high-bg);color:var(--high);}
+  .wchip.w{background:var(--int-bg);color:var(--int);}
+  /* Stress test banner */
+  .stress-banner{background:var(--int-bg);border:1px solid var(--int);border-radius:var(--rsm);padding:9px 12px;margin-bottom:13px;font-size:11px;font-family:sans-serif;color:var(--int);line-height:1.5;}
+  .stress-banner strong{font-weight:700;}
+  /* LR chips */
+  .lr-chips{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px;}
+  .lrc{font-size:9px;font-family:sans-serif;padding:2px 5px;border-radius:3px;background:var(--surface2);color:var(--text3);border:1px solid var(--border);}
+  .lrc.on{background:var(--accent-bg);color:var(--accent);border-color:transparent;}
+  .nod-used{font-size:10px;font-family:sans-serif;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:3px;padding:2px 7px;display:inline-block;margin-bottom:5px;}
+  /* Interp */
+  .ibox{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;}
+  .ititle{font-size:11px;font-weight:700;font-family:sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);margin-bottom:8px;}
+  .iitem{display:flex;gap:9px;margin-bottom:7px;align-items:flex-start;}
+  .iitem:last-child{margin-bottom:0;}
+  .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+  .dot.hi{background:var(--high);}
+  .dot.intc{background:var(--int);}
+  .dot.info{background:var(--accent);}
+  .itxt{font-size:12px;color:var(--text2);font-family:sans-serif;line-height:1.55;}
+  .bimc-note{font-size:10px;color:var(--text3);font-family:sans-serif;background:var(--surface2);border-radius:var(--rsm);padding:7px 9px;margin-top:9px;line-height:1.5;}
+  .disc{font-size:10px;color:var(--text3);font-family:sans-serif;padding:10px 12px;border-top:1px solid var(--border);line-height:1.6;}
+  input[type=date]{font-size:12px;font-family:sans-serif;padding:5px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);width:100%;outline:none;transition:border-color .15s;}
+  input[type=date]:focus{border-color:var(--accent);}
+  .vdt-interval{font-size:11px;font-family:sans-serif;padding:5px 8px;border-radius:var(--rsm);margin-top:2px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;gap:6px;}
+  .vdt-days-val{font-weight:600;font-size:13px;color:var(--accent);font-family:sans-serif;}
+  .vdt-days-empty{color:var(--text3);font-style:italic;}
+</style>
+</head>
+<body>
+<header>
+  <h1>Pulmonary Nodule Malignancy Risk</h1>
+  <p>Mayo · Brock · Herder · BIMC · Fleischner 2017 · BTS VDT &nbsp;·&nbsp; For qualified clinician use only</p>
+</header>
+
+<div id="ett-overlay" onclick="closeEdgeTT()"></div>
+<div id="edge-tt">
+  <p class="ett-title">Edge morphology — Fleischner / Soardi 2015 (Fig. 2)</p>
+  <div class="ett-grid" id="ett-grid"></div>
+  <div class="ett-desc" id="ett-desc"></div>
+  <p class="ett-note">Fig. 2: "Growing complexity of nodule edges, from left to right: smooth, minimally lobulated, deeply lobulated, frayed, spiculated." "Lobulated" in ESM = "deeply lobulated" in paper. BIMC validated for solid nodules (4–30 mm) only.</p>
+</div>
+
+<div class="main">
+<div class="inp">
+
+  <div class="slbl">Available data</div>
+  <div class="tog-grid">
+    <div class="tog on" id="tog-pet" onclick="toggleData('pet')">
+      <div class="tog-lbl"><strong>FDG-PET / PET-CT</strong><span>Enables Herder · activates BIMC PET LR</span></div><div class="sw"></div>
+    </div>
+    <div class="tog on" id="tog-vdt" onclick="toggleData('vdt')">
+      <div class="tog-lbl"><strong>Two-point size measurements</strong><span>Enables BTS VDT · activates BIMC VDT LR</span></div><div class="sw"></div>
+    </div>
+    <div class="tog" id="tog-enh" onclick="toggleData('enh')">
+      <div class="tog-lbl"><strong>CT enhancement (dynamic contrast CT)</strong><span>Activates BIMC enhancement LR per nodule</span></div><div class="sw"></div>
+    </div>
+    <div class="tog" id="tog-den" onclick="toggleData('den')">
+      <div class="tog-lbl"><strong>Min focal density (HU)</strong><span>Activates BIMC density LR per nodule</span></div><div class="sw"></div>
+    </div>
+  </div>
+
+  <div class="slbl">Patient demographics</div>
+  <div class="fg">
+    <div class="fld"><label>Age (years)</label><input type="number" id="age" value="60" min="18" max="99" oninput="render()"></div>
+    <div class="fld"><label>Sex</label><select id="sex" onchange="render()"><option value="female" selected>Female</option><option value="male">Male</option></select></div>
+  </div>
+  <div class="fg" style="margin-top:7px">
+    <div class="fld"><label>Smoking status</label><select id="smoker" onchange="render()"><option value="never" selected>Never smoker</option><option value="former">Former smoker</option><option value="current">Current smoker</option></select></div>
+    <div class="fld"><label>Pack-years</label><input type="number" id="packyears" value="0" min="0" oninput="render()"></div>
+  </div>
+  <div class="fg c3" style="margin-top:7px">
+    <div class="fld"><label>Prior cancer</label><select id="priorcancer" onchange="render()"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
+    <div class="fld"><label>Family hx lung Ca</label><select id="familyhx" onchange="render()"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
+    <div class="fld"><label>Emphysema</label><select id="emphysema" onchange="render()"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
+  </div>
+  <div class="fg c1" style="margin-top:7px">
+    <div class="fld">
+      <label>Clinical context</label>
+      <select id="ctx" onchange="render()">
+        <option value="incidental" selected>Incidentally detected (clinical CT)</option>
+        <option value="screening">Lung cancer screening program</option>
+        <option value="biopsy">Referred for invasive workup / biopsy</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="slbl">Nodules</div>
+  <div class="ncount-row">
+    <label>Number of nodules:</label>
+    <div class="ncount-ctrl">
+      <button class="ncount-btn" onclick="changeCount(-1)">−</button>
+      <div class="ncount-val" id="ncount-disp">2</div>
+      <button class="ncount-btn" onclick="changeCount(1)">+</button>
+    </div>
+    <div class="auto-badge" id="auto-btn" onclick="resetAuto()" style="display:none">↺ Auto-select</div>
+  </div>
+  <div class="nod-cards" id="nod-cards"></div>
+
+  <div class="slbl">BIMC prior probability</div>
+  <div class="fg c1">
+    <div class="fld">
+      <label>Prevalence in referred population (%) — ~30% clinical, ~5% screening</label>
+      <input type="number" id="prior" value="30" min="1" max="99" oninput="render()">
+    </div>
+  </div>
+
+</div>
+<div class="res">
+
+  <div class="sum-grid">
+    <div class="met"><p class="met-lbl">Highest probability</p><p class="met-val" id="s-hi">—</p><p class="met-sub" id="s-hi-src"></p></div>
+    <div class="met"><p class="met-lbl">VDT (index nodule)</p><p class="met-val" id="s-vdt">—</p><p class="met-sub" id="s-vdt-sub"></p></div>
+    <div class="met"><p class="met-lbl">High-risk models</p><p class="met-val hi" id="s-ct">—</p></div>
+  </div>
+
+  <div id="stress-banner" style="display:none" class="stress-banner"></div>
+
+  <div class="rtbl-wrap">
+    <table>
+      <thead><tr>
+        <th style="width:32%">Model</th><th style="width:15%">Result</th><th style="width:15%">Category</th><th>Notes &amp; Warnings</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="disc">
+      <strong>ACCP:</strong> Low &lt;5% · Int 5–65% · High &gt;65%.&ensp;
+      <strong>BTS/Herder:</strong> Low &lt;10% · Int 10–70% · High &gt;70%.&ensp;
+      <strong style="color:var(--high)">⊘</strong> = outside validated range.&ensp;
+      <strong style="color:var(--int)">⚠</strong> = population mismatch / calibration caution.&ensp;
+      BIMC solid 4–30 mm only. Clinician use only.
+    </div>
+  </div>
+
+  <div class="ibox">
+    <p class="ititle">Clinical interpretation</p>
+    <div id="interp"></div>
+    <div class="bimc-note">BIMC: exact LRs from Soardi et al., Eur Radiol 2015 (ESM v1). "Deeply lobulated" = "Lobulated" in ESM. Inactive inputs = LR 1.0. Blue chips = active inputs.</div>
+  </div>
+
+</div>
+</div>
+
+<script>
+var DS={pet:true,vdt:true,enh:false,den:false};
+var manualSel=false,selIdx=0;
+var nodules=[
+  {d:21,nt:'solid',loc:'lower',sp:false,edges:'lobulated',pet:'intense',suv:6.4,s1:10,s2:21,d1:'2025-07-01',d2:'2026-04-01',den:'gt_neg30',enh:'unknown'},
+  {d:14,nt:'solid',loc:'lower',sp:false,edges:'lobulated',pet:'faint',suv:2.1,s1:0,s2:14,d1:'2025-07-01',d2:'2026-04-01',den:'gt_neg30',enh:'unknown'}
+];
+function defaultNodule(){return{d:10,nt:'solid',loc:'lower',sp:false,edges:'min_lob',pet:'none',suv:0,s1:0,s2:10,d1:'',d2:'',den:'gt_neg30',enh:'unknown'};}
+
+// ── Edge data ─────────────────────────────────────────────────
+var EDGES=[
+  {key:'smooth',   label:'Smooth',             lr:0.293,lrc:'low',
+   desc:'Perfectly regular, well-defined border with no projections or indentations. Strongly associated with benign etiology (granuloma, hamartoma). LR 0.293.'},
+  {key:'min_lob',  label:'Minimally lobulated', lr:0.735,lrc:'low',
+   desc:'Very subtle, shallow undulations. Barely perceptible scalloping with essentially regular contour. Still suggests benign process. LR 0.735.'},
+  {key:'lobulated',label:'Deeply lobulated',    lr:1.888,lrc:'intc',
+   desc:'Clear, prominent rounded bumps/scalloping (≥2 mm) reflecting uneven tumor growth. Intermediate concern. LR 1.888. (ESM dropdown = "Lobulated"; paper Fig. 2 = "deeply lobulated".)'},
+  {key:'frayed',   label:'Frayed',              lr:3.710,lrc:'hi',
+   desc:'Irregular, ragged border with short angular projections; bristly appearance. Less organized than spiculation but more irregular than lobulation. LR 3.710.'},
+  {key:'spiculated',label:'Spiculated',         lr:7.884,lrc:'hi',
+   desc:'Thin, sharp, radiating needle-like projections from the nodule surface (corona radiata sign). Highly characteristic of invasive malignancy. LR 7.884. Automatically syncs with the Spiculation toggle.'}
+];
+
+// ── Validated ranges per model ────────────────────────────────
+// Returns array of {l:'e'|'w', t:'text'} objects
+function getWarnings(model, n, ctx) {
+  var age=gn('age'), pc=gb('priorcancer');
+  var w=[];
+  if (model==='mayo') {
+    if (n.d<4)  w.push({l:'e',t:'Diameter <4 mm — below validated range (4–30 mm)'});
+    if (n.d>30) w.push({l:'e',t:'Diameter >30 mm — lesion is a mass; TNM staging applies'});
+    if (n.nt!=='solid') w.push({l:'e',t:'Derived from CXR data; not validated for subsolid nodules'});
+    if (pc)     w.push({l:'w',t:'Patients with prior cancer excluded from derivation cohort'});
+    if (age<40) w.push({l:'w',t:'Age <40 — below typical derivation cohort range'});
+    if (ctx==='biopsy') w.push({l:'w',t:'In biopsy-referred cohorts: AUC 0.70, poor calibration — likely underestimates (Heideman et al., CHEST Pulm 2024)'});
+    if (ctx==='screening') w.push({l:'w',t:'Derived from incidentally detected nodules (23% prevalence); may overestimate in low-prevalence screening cohorts'});
+  }
+  if (model==='brock') {
+    if (n.d<4)  w.push({l:'e',t:'Diameter <4 mm — below practical range for Brock model'});
+    if (n.d>30) w.push({l:'e',t:'Diameter >30 mm — lesion is a mass; Brock not applicable'});
+    if (age<40) w.push({l:'e',t:'Age <40 — PanCan enrolled ages 40–74 only'});
+    if (age>74) w.push({l:'e',t:'Age >74 — above PanCan upper enrollment limit'});
+    if (pc)     w.push({l:'w',t:'Prior cancer: screening study excluded active malignancy'});
+    if (ctx!=='screening') w.push({l:'w',t:'Derived from a screening population (5.5% prevalence); tends to underestimate probability in higher-prevalence clinical or biopsy-referred settings'});
+    if (ctx==='biopsy') w.push({l:'w',t:'Biopsy-referred cohort: AUC 0.70, Brier 0.36 (worst calibrated model) — most likely to underestimate (Heideman et al., CHEST Pulm 2024)'});
+  }
+  if (model==='herder') {
+    if (n.d<4)  w.push({l:'e',t:'Diameter <4 mm — below typical validated range'});
+    if (n.d>30) w.push({l:'e',t:'Diameter >30 mm — lesion is a mass'});
+    if (n.nt!=='solid') w.push({l:'w',t:'Derived primarily in solid nodules; limited validation in subsolid lesions'});
+    if (pc)     w.push({l:'w',t:'Original model excluded extrathoracic cancer <5 y; BTS guidelines permit inclusion'});
+  }
+  if (model==='bimc') {
+    if (n.d<4)  w.push({l:'e',t:'Below validated range (4–30 mm solid nodules only)'});
+    if (n.d>30) w.push({l:'e',t:'Above validated range (4–30 mm solid nodules only)'});
+    if (n.nt!=='solid') w.push({l:'e',t:'BIMC validated for solid nodules only — subsolid inputs produce unvalidated results'});
+    if (DS.enh) w.push({l:'w',t:'Enhancement LR requires dedicated dynamic contrast CT, not incidental contrast'});
+  }
+  if (model==='fleisch') {
+    if (n.d>30) w.push({l:'e',t:'Diameter >30 mm is classified as a mass — Fleischner criteria do not apply'});
+    if (nodules.length>1) w.push({l:'w',t:'Multiple nodules present; Fleischner recommends following the most suspicious lesion'});
+  }
+  if (model==='vdt') {
+    var V=vdtFor(n);
+    if (V!==null&&V<0) w.push({l:'e',t:'Negative VDT — nodule is shrinking, suggesting benign/inflammatory process'});
+    if (n.nt!=='solid'&&V!==null&&V<900) w.push({l:'w',t:'Subsolid nodules have longer VDT (3–5 y); malignant kinetics thresholds differ from solid nodules'});
+  }
+  return w;
+}
+
+// ── SVG edge illustrations ────────────────────────────────────
+function makeEdgeSVG(type,size,sel) {
+  var s=size||50,cx=s/2,cy=s/2,n=120,pts=[];
+  var dark=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches;
+  var fill=sel?(dark?'#1a3a5a':'#b8d4ea'):(dark?'#1e2e3e':'#c8d8e8');
+  var stroke=sel?(dark?'#5ba4de':'#1a5a8a'):(dark?'#4a7a9a':'#4a7a9a');
+  for(var i=0;i<n;i++){
+    var t=(i/n)*2*Math.PI,r;
+    if(type==='smooth')r=s*.36;
+    else if(type==='min_lob')r=s*.34+s*.035*Math.sin(3*t+.4)+s*.018*Math.sin(7*t+1.2);
+    else if(type==='lobulated')r=s*.30+s*.09*Math.pow(Math.sin(2*t+.3),2)+s*.06*Math.pow(Math.sin(3*t+1),2);
+    else if(type==='frayed')r=s*.31+s*.05*Math.sin(6*t)+s*.04*Math.sin(11*t+.7)+s*.03*Math.sin(17*t+2.1)+s*.025*Math.sin(5*t+1.4);
+    else{var base=s*.26,spk=9,ang=(t/(2*Math.PI))*spk%1,spk2=ang<.08?ang/.08:ang<.16?(.16-ang)/.08:0;r=base+s*.22*Math.pow(spk2,.6);}
+    pts.push((cx+r*Math.cos(t)).toFixed(1)+','+(cy+r*Math.sin(t)).toFixed(1));
+  }
+  return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 '+s+' '+s+'"><polygon points="'+pts.join(' ')+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+}
+
+// ── Edge tooltip ──────────────────────────────────────────────
+var activeTTNodule=-1,activeTTBtn=null;
+function buildEdgeTT(ni,btn){
+  var tt=document.getElementById('edge-tt');
+  if(activeTTNodule===ni&&tt.style.display!=='none'){closeEdgeTT();return;}
+  activeTTNodule=ni;
+  if(activeTTBtn)activeTTBtn.classList.remove('active');
+  activeTTBtn=btn;btn.classList.add('active');
+  renderEdgeTTGrid(ni);
+  var ov=document.getElementById('ett-overlay');ov.style.display='block';tt.style.display='block';
+  var rect=btn.getBoundingClientRect();
+  var left=rect.left,top=rect.bottom+6;
+  if(left+520>window.innerWidth-8)left=window.innerWidth-528;
+  if(left<8)left=8;
+  if(top+320>window.innerHeight-8)top=rect.top-326;
+  tt.style.left=left+'px';tt.style.top=top+'px';
+}
+function renderEdgeTTGrid(ni){
+  var cur=nodules[ni].edges;
+  document.getElementById('ett-grid').innerHTML=EDGES.map(function(e){
+    var s=e.key===cur;
+    return '<div class="ett-card'+(s?' sel':'')+'" onclick="selectEdgeFromTT('+ni+',\''+e.key+'\')">'+makeEdgeSVG(e.key,50,s)+'<span class="ett-name">'+e.label+'</span><span class="ett-lr '+e.lrc+'">LR '+e.lr+'</span></div>';
+  }).join('');
+  var ce=EDGES.find(function(e){return e.key===cur;});
+  document.getElementById('ett-desc').textContent=ce?ce.desc:'';
+}
+function selectEdgeFromTT(ni,key){
+  noduleInput(ni,'edges',key);
+  renderEdgeTTGrid(ni);
+}
+function closeEdgeTT(){
+  document.getElementById('edge-tt').style.display='none';
+  document.getElementById('ett-overlay').style.display='none';
+  if(activeTTBtn)activeTTBtn.classList.remove('active');
+  activeTTBtn=null;activeTTNodule=-1;
+}
+
+// ── Toggle ────────────────────────────────────────────────────
+function toggleData(k){
+  DS[k]=!DS[k];
+  var row=document.getElementById('tog-'+k);
+  DS[k]?row.classList.add('on'):row.classList.remove('on');
+  closeEdgeTT();buildNoduleCards();render();
+}
+function changeCount(delta){
+  var n=nodules.length+delta;if(n<1||n>6)return;
+  while(nodules.length<n)nodules.push(defaultNodule());
+  while(nodules.length>n)nodules.pop();
+  if(selIdx>=nodules.length){selIdx=0;manualSel=false;}
+  document.getElementById('ncount-disp').textContent=nodules.length;
+  closeEdgeTT();buildNoduleCards();render();
+}
+
+// ── Spiculation sync ──────────────────────────────────────────
+function syncSpiculation(i){
+  // Update DOM elements to reflect current nodule state
+  var spEl=document.getElementById('n'+i+'_sp');
+  var edgeEl=document.getElementById('n'+i+'_edges');
+  if(spEl) spEl.value=nodules[i].sp?'yes':'no';
+  if(edgeEl) {
+    edgeEl.value=nodules[i].edges;
+    // Visual feedback: highlight synced field briefly
+    edgeEl.classList.toggle('synced', nodules[i].sp);
+    spEl && spEl.classList.toggle('synced', nodules[i].sp);
+  }
+  // If tooltip is open for this nodule, refresh it
+  if(activeTTNodule===i) renderEdgeTTGrid(i);
+}
+
+// ── Build nodule cards ────────────────────────────────────────
+function buildNoduleCards(){
+  var c=document.getElementById('nod-cards');
+  var html='';
+  nodules.forEach(function(nod,i){
+    var sel=i===selIdx;
+    html+='<div class="ncard'+(sel?' selected':'')+'" id="ncard-'+i+'">';
+    html+='<div class="ncard-hdr" onclick="selectNodule('+i+')">';
+    html+='<div class="nsel-dot"></div>';
+    html+='<span class="nnum">Nodule '+(i+1)+'</span>';
+    if(sel&&nodules.length>1)html+='<span class="nidx-badge" id="nidx-'+i+'">'+(manualSel?'selected':'auto-selected')+'</span>';
+    else html+='<span id="nidx-'+i+'"></span>';
+    html+='<span class="nscore-badge" id="nscore-'+i+'"></span>';
+    html+='</div>';
+    html+='<div class="ncard-body">';
+    html+='<div class="fg"><div class="fld"><label>Diameter (mm)</label><input type="number" id="n'+i+'_d" value="'+nod.d+'" min="1" max="30" oninput="noduleInput('+i+',\'d\',+this.value)"></div>';
+    html+='<div class="fld"><label>Composition</label><select id="n'+i+'_nt" onchange="noduleInput('+i+',\'nt\',this.value)"><option value="solid"'+(nod.nt==='solid'?' selected':'')+'>Solid</option><option value="part_solid"'+(nod.nt==='part_solid'?' selected':'')+'>Part-solid</option><option value="ground_glass"'+(nod.nt==='ground_glass'?' selected':'')+'>Ground glass</option></select></div></div>';
+    html+='<div class="fg"><div class="fld"><label>Location</label><select id="n'+i+'_loc" onchange="noduleInput('+i+',\'loc\',this.value)"><option value="lower"'+(nod.loc==='lower'?' selected':'')+'>Lower lobe</option><option value="middle"'+(nod.loc==='middle'?' selected':'')+'>Middle / lingula</option><option value="upper"'+(nod.loc==='upper'?' selected':'')+'>Upper lobe</option></select></div>';
+    html+='<div class="fld"><label>Spiculation</label><select id="n'+i+'_sp" onchange="noduleInput('+i+',\'sp\',this.value===\'yes\')"'+(nod.sp?' class="synced"':'')+'>  <option value="no"'+(nod.sp?'':' selected')+'>No</option><option value="yes"'+(nod.sp?' selected':'')+'>Yes</option></select></div></div>';
+    html+='<div class="fg c1"><div class="fld"><div class="fld-lr"><label>Edge morphology (BIMC)</label><button class="info-btn" onclick="event.stopPropagation();buildEdgeTT('+i+',this)" title="Show edge morphology guide">?</button></div>';
+    html+='<select id="n'+i+'_edges" onchange="noduleInput('+i+',\'edges\',this.value)"'+(nod.sp?' class="synced"':'')+'>'+EDGES.map(function(e){return'<option value="'+e.key+'"'+(nod.edges===e.key?' selected':'')+'>'+e.label+' (LR '+e.lr+')</option>';}).join('')+'</select></div></div>';
+    if(DS.pet){
+      html+='<div class="ncard-sep"></div>';
+      html+='<div class="fg"><div class="fld"><label>FDG uptake</label><select id="n'+i+'_pet" onchange="noduleInput('+i+',\'pet\',this.value)">';
+      [['none','None / background'],['faint','Faint (SUV 1–2.5)'],['moderate','Moderate'],['intense','Intense (SUV >5)']].forEach(function(o){html+='<option value="'+o[0]+'"'+(nod.pet===o[0]?' selected':'')+'>'+o[1]+'</option>';});
+      html+='</select></div><div class="fld"><label>SUV max</label><input type="number" id="n'+i+'_suv" value="'+nod.suv+'" min="0" step="0.1" oninput="noduleInput('+i+',\'suv\',+this.value)"></div></div>';
+    }
+    if(DS.vdt){
+      html+='<div class="ncard-sep"></div>';
+      html+='<div class="fg"><div class="fld"><label>Prior size (mm)</label><input type="number" id="n'+i+'_s1" value="'+nod.s1+'" min="0" oninput="noduleInput('+i+',\'s1\',+this.value)"></div>';
+      html+='<div class="fld"><label>Current size (mm)</label><input type="number" id="n'+i+'_s2" value="'+nod.s2+'" min="1" oninput="noduleInput('+i+',\'s2\',+this.value)"></div></div>';
+      html+='<div class="fg"><div class="fld"><label>Date of 1st CT</label><input type="date" id="n'+i+'_d1" value="'+(nod.d1||'')+'" oninput="noduleInput('+i+',\'d1\',this.value)"></div>';
+      html+='<div class="fld"><label>Date of 2nd CT</label><input type="date" id="n'+i+'_d2" value="'+(nod.d2||'')+'" oninput="noduleInput('+i+',\'d2\',this.value)"></div></div>';
+      var ddays=calcDaysBetween(nod.d1,nod.d2);
+      if(ddays!==null&&ddays>0){
+        html+='<div class="vdt-interval"><span class="vdt-days-val">'+ddays+' days</span> between scans</div>';
+      } else if(ddays!==null&&ddays<0){
+        html+='<div class="vdt-interval"><span style="color:var(--int)">⚠ 2nd CT date is before 1st CT date</span></div>';
+      } else {
+        html+='<div class="vdt-interval"><span class="vdt-days-empty">Enter both CT dates to calculate interval</span></div>';
+      }
+    }
+    if(DS.den){
+      html+='<div class="ncard-sep"></div>';
+      html+='<div class="fg c1"><div class="fld"><label>Min focal density</label><select id="n'+i+'_den" onchange="noduleInput('+i+',\'den\',this.value)"><option value="lt_neg60"'+(nod.den==='lt_neg60'?' selected':'')+'>Below −60 HU (fat)</option><option value="neg60_neg30"'+(nod.den==='neg60_neg30'?' selected':'')+'>−60 to −30 HU</option><option value="gt_neg30"'+(nod.den==='gt_neg30'?' selected':'')+'>Above −30 HU (soft tissue)</option></select></div></div>';
+    }
+    if(DS.enh){
+      html+='<div class="ncard-sep"></div>';
+      html+='<div class="fg c1"><div class="fld"><label>CT enhancement (dynamic contrast)</label><select id="n'+i+'_enh" onchange="noduleInput('+i+',\'enh\',this.value)"><option value="lt15"'+(nod.enh==='lt15'?' selected':'')+'>Below 15 HU</option><option value="15_40"'+(nod.enh==='15_40'?' selected':'')+'>15–40 HU</option><option value="gt40"'+(nod.enh==='gt40'?' selected':'')+'>Above 40 HU</option></select></div></div>';
+    }
+    html+='</div></div>';
+  });
+  c.innerHTML=html;
+}
+
+// ── Input handler with spiculation sync ──────────────────────
+function noduleInput(i,k,v){
+  nodules[i][k]=v;
+  // Bidirectional spiculation sync
+  if(k==='sp'){
+    if(v===true){nodules[i].edges='spiculated';}
+    else if(nodules[i].edges==='spiculated'){nodules[i].edges='lobulated';}
+    syncSpiculation(i);
+  } else if(k==='edges'){
+    var wasSp=nodules[i].sp;
+    nodules[i].sp=(v==='spiculated');
+    if(wasSp!==nodules[i].sp) syncSpiculation(i);
+    // Update edge select in case called from tooltip
+    var edgeEl=document.getElementById('n'+i+'_edges');
+    if(edgeEl&&edgeEl.value!==v) edgeEl.value=v;
+    var spEl=document.getElementById('n'+i+'_sp');
+    if(spEl) spEl.value=nodules[i].sp?'yes':'no';
+    var synced=nodules[i].sp;
+    if(edgeEl) edgeEl.classList.toggle('synced',synced);
+    if(spEl) spEl.classList.toggle('synced',synced);
+  }
+  if(!manualSel)autoSelectNodule();
+  render();
+}
+function selectNodule(i){if(nodules.length===1)return;selIdx=i;manualSel=true;document.getElementById('auto-btn').style.display='';buildNoduleCards();render();}
+function resetAuto(){manualSel=false;document.getElementById('auto-btn').style.display='none';autoSelectNodule();buildNoduleCards();render();}
+
+// ── Auto-select ───────────────────────────────────────────────
+function scoreNodule(n){return DS.pet&&(n.suv>0||(n.pet&&n.pet!=='none'))?herderFor(n)||bimcFor(n):bimcFor(n);}
+function autoSelectNodule(){var b=0,bs=-1;nodules.forEach(function(n,i){var s=scoreNodule(n);if(s>bs){bs=s;b=i;}});selIdx=b;}
+
+// ── Helpers ───────────────────────────────────────────────────
+function g(id){return document.getElementById(id);}
+function gv(id){return g(id)?g(id).value:'';}
+function gn(id){return parseFloat(gv(id))||0;}
+function gb(id){return gv(id)==='yes';}
+function sig(x){return 1/(1+Math.exp(-x));}
+function pct(p){return(p*100).toFixed(1)+'%';}
+
+// ── Models ────────────────────────────────────────────────────
+function mayoFor(n){
+  var a=gn('age'),sm=gv('smoker')!=='never',pc=gb('priorcancer');
+  return sig(-6.8272+0.0391*a+0.7917*(sm?1:0)+0.1274*n.d+1.0407*(n.sp?1:0)+0.7838*(n.loc==='upper'?1:0)+1.3388*(pc?1:0));
+}
+function brockFor(n){
+  var a=gn('age'),f=gv('sex')==='female',fh=gb('familyhx'),em=gb('emphysema'),c=nodules.length;
+  return sig(-6.7892+0.0391*a+0.7917*(f?1:0)+1.3388*(fh?1:0)+0.7838*(em?1:0)+0.1274*n.d+(n.nt==='part_solid'?.7838:0)+(n.nt==='ground_glass'?1.0407:0)+0.7838*(n.loc==='upper'?1:0)+1.3388*(n.sp?1:0)+0.2090*Math.log(Math.max(c,1)));
+}
+function herderFor(n){
+  if(!DS.pet)return null;
+  var a=gn('age'),sm=gv('smoker')!=='never';
+  var petPos=(n.pet&&n.pet!=='none')||n.suv>2.5;
+  return sig(-4.739+0.068*a+0.819*(sm?1:0)+0.347*(n.d/10)+1.482*(n.sp?1:0)+1.587*(n.loc==='upper'?1:0)+3.691*(petPos?1:0));
+}
+
+var LR={
+  age:{lt40:.603,a40:.905,a50:.98,a60:.762,a70:1.616,a80:.884},
+  smoke:{never:1,lt40:1.216,gte40:3.7},cancer:{no:1,yes:2.422},
+  size:{s10:.4,s15:.882,s20:2.308,s25:2.284,s30:3.391},
+  loc:{lower:.889,middle:1.271,upper:1.044},
+  edges:{smooth:.293,min_lob:.735,lobulated:1.888,frayed:3.71,spiculated:7.884},
+  vdt:{fast:14.472,mid:2.412,slow:.085},
+  den:{fat:.239,mid:.922,soft:1.462},
+  enh:{low:.258,mid:.586,high:5.004},
+  fdg:{none:1,lt1:.100,mid:.606,high:1.59}
+};
+
+function calcDaysBetween(d1,d2){
+  if(!d1||!d2)return null;
+  var t1=new Date(d1).getTime(),t2=new Date(d2).getTime();
+  if(isNaN(t1)||isNaN(t2))return null;
+  var days=Math.round((t2-t1)/(1000*60*60*24));
+  return days!==0?days:null;
+}
+function vdtFor(n){
+  if(!DS.vdt||!n.s1||!n.s2||n.s1===n.s2)return null;
+  var days=calcDaysBetween(n.d1,n.d2);
+  if(!days)return null;
+  var v=(days*Math.LN2)/(3*Math.log(n.s2/n.s1));
+  return(isFinite(v)&&v!==0)?v:null;
+}
+
+function bimcLRsFor(n){
+  var a=gn('age');
+  var ageLR=a<40?LR.age.lt40:a<50?LR.age.a40:a<60?LR.age.a50:a<70?LR.age.a60:a<80?LR.age.a70:LR.age.a80;
+  var aLabel=a<40?'<40':a<50?'40–49':a<60?'50–59':a<70?'60–69':a<80?'70–79':'80–89';
+  var sm=gv('smoker'),py=gn('packyears');
+  var smLR=sm==='never'?1:(py>=40?LR.smoke.gte40:LR.smoke.lt40);
+  var szLR=n.d<=10?LR.size.s10:n.d<=15?LR.size.s15:n.d<=20?LR.size.s20:n.d<=25?LR.size.s25:LR.size.s30;
+  var szLabel=n.d<=10?'4–10mm':n.d<=15?'11–15mm':n.d<=20?'16–20mm':n.d<=25?'21–25mm':'26–30mm';
+  var locLR=n.loc==='upper'?LR.loc.upper:n.loc==='middle'?LR.loc.middle:LR.loc.lower;
+  var edgeLR=LR.edges[n.edges]||1;
+  var canLR=gb('priorcancer')?LR.cancer.yes:LR.cancer.no;
+  var vdtLR=1,vdtLabel='VDT: off',vdtOn=false;
+  if(DS.vdt){var V=vdtFor(n);if(V&&V>0){vdtOn=true;if(V<=400){vdtLR=LR.vdt.fast;vdtLabel='VDT '+Math.round(V)+'d';}else if(V<=900){vdtLR=LR.vdt.mid;vdtLabel='VDT '+Math.round(V)+'d';}else{vdtLR=LR.vdt.slow;vdtLabel='VDT '+Math.round(V)+'d';}}}
+  var denLR=1,denLabel='Density: off',denOn=DS.den;
+  if(DS.den){denLR=n.den==='lt_neg60'?LR.den.fat:n.den==='neg60_neg30'?LR.den.mid:LR.den.soft;denLabel={lt_neg60:'<−60HU',neg60_neg30:'−60–−30HU',gt_neg30:'>−30HU'}[n.den];}
+  var enhLR=1,enhLabel='Enh: off',enhOn=DS.enh;
+  if(DS.enh){enhLR=n.enh==='lt15'?LR.enh.low:n.enh==='15_40'?LR.enh.mid:LR.enh.high;enhLabel={lt15:'<15HU','15_40':'15–40HU',gt40:'>40HU'}[n.enh];}
+  var petLR=1,petLabel='PET: off',petOn=DS.pet;
+  if(DS.pet){var suv=n.suv||0,pt=n.pet||'none';petLR=pt==='none'?LR.fdg.none:suv<1?LR.fdg.lt1:suv<=2.5?LR.fdg.mid:LR.fdg.high;petLabel=pt==='none'?'PET none':'SUV '+(suv<=2.5?'≤2.5':'>2.5');}
+  return{
+    chips:[
+      {l:'Age: '+aLabel,v:ageLR,on:true},
+      {l:sm==='never'?'Non-smoker':(py>=40?'≥40 py':'<40 py'),v:smLR,on:true},
+      {l:'Size: '+szLabel,v:szLR,on:true},
+      {l:{lower:'Lower',middle:'Middle',upper:'Upper'}[n.loc],v:locLR,on:true},
+      {l:{smooth:'Smooth',min_lob:'Min-lob',lobulated:'Deep-lob',frayed:'Frayed',spiculated:'Spiculated'}[n.edges]||'',v:edgeLR,on:true},
+      {l:'Ca: '+(gb('priorcancer')?'Yes':'No'),v:canLR,on:true},
+      {l:vdtLabel,v:vdtLR,on:vdtOn},
+      {l:denLabel,v:denLR,on:denOn},
+      {l:enhLabel,v:enhLR,on:enhOn},
+      {l:petLabel,v:petLR,on:petOn},
+    ],
+    product:ageLR*smLR*canLR*szLR*locLR*edgeLR*vdtLR*denLR*enhLR*petLR
+  };
+}
+function bimcFor(n){
+  var pr=gn('prior');if(pr<1||pr>99)return 0;
+  var po=pr/(100-pr),c=bimcLRsFor(n);
+  return(po*c.product)/((po*c.product)+1);
+}
+function fleischFor(n){
+  var d=n.d,nt=n.nt,suv=n.suv||0;
+  if(nt==='solid'){
+    if(d<6)return{rec:'No routine follow-up',note:'<6 mm solid',cat:'low'};
+    if(d<8)return{rec:'CT 6–12 mo, then 18–24 mo',note:'6–8 mm solid',cat:'intc'};
+    return{rec:'CT 3 mo / PET-CT / tissue sampling',note:DS.pet?'PET positive (SUV '+suv.toFixed(1)+') — tissue sampling':'Consider CT 3 mo, PET-CT, or tissue sampling',cat:'high'};
+  }
+  if(nt==='part_solid'){
+    if(d<6)return{rec:'No routine follow-up',note:'<6 mm part-solid',cat:'low'};
+    return{rec:'CT 3–6 mo; annual × 5 y if persistent',note:'Solid component ≥6 mm → consider resection',cat:'intc'};
+  }
+  if(d<6)return{rec:'No routine follow-up',note:'<6 mm GGN',cat:'low'};
+  return{rec:'CT 6–12 mo, then q2y × 5 y',note:'Persistent GGN ≥6 mm',cat:'intc'};
+}
+
+function rcat(p,bts){if(bts)return p<.10?'low':p<.70?'intc':'high';return p<.05?'low':p<.65?'intc':'high';}
+function cc(cat){return cat==='high'?'hi':cat==='intc'?'intc':'low';}
+function pill(cat,lbl){return'<span class="pill '+(cat||'na')+'">'+(lbl||{low:'Low',intc:'Intermediate',high:'High',na:'—'}[cat]||'—')+'</span>';}
+function wchipsHtml(ws){
+  if(!ws||!ws.length)return'';
+  return'<div class="wchips">'+ws.map(function(w){return'<span class="wchip '+w.l+'"><span>'+(w.l==='e'?'⊘':'⚠')+'</span>'+w.t+'</span>';}).join('')+'</div>';
+}
+
+// ── Render ────────────────────────────────────────────────────
+function render(){
+  if(!manualSel)autoSelectNodule();
+  var ctx=gv('ctx');
+
+  nodules.forEach(function(nod,i){
+    var card=document.getElementById('ncard-'+i);
+    var scoreBadge=document.getElementById('nscore-'+i);
+    var idxBadge=document.getElementById('nidx-'+i);
+    if(!card)return;
+    var sel=i===selIdx;
+    sel?card.classList.add('selected'):card.classList.remove('selected');
+    var sc=DS.pet&&(nod.suv>0||(nod.pet&&nod.pet!=='none'))?herderFor(nod)||bimcFor(nod):bimcFor(nod);
+    var scat=DS.pet?rcat(sc,true):rcat(sc,false);
+    if(scoreBadge&&nodules.length>1){scoreBadge.textContent=pct(sc);scoreBadge.className='nscore-badge '+cc(scat);}
+    if(idxBadge){
+      if(sel&&nodules.length>1){idxBadge.className='nidx-badge';idxBadge.textContent=manualSel?'selected':'auto-selected';}
+      else{idxBadge.className='';idxBadge.textContent='';}
+    }
+  });
+
+  var n=nodules[selIdx]||nodules[0];
+  var M=mayoFor(n),B=brockFor(n),H=herderFor(n),I=bimcFor(n),V=vdtFor(n),F=fleischFor(n),C=bimcLRsFor(n);
+  var vdtOn=V!==null&&V>0;
+
+  // Stress test banner
+  var banner=g('stress-banner');
+  if(ctx==='biopsy'){
+    banner.style.display='';
+    banner.innerHTML='<strong>⚠ Biopsy-referred context (Heideman et al., CHEST Pulm 2024):</strong> In a prospective cohort of 322 nodules referred for navigational bronchoscopy (57% malignancy prevalence), all CT-only models showed AUC ~0.70 with poor calibration — Brock had the worst Brier score (0.36). Models <strong>likely underestimate</strong> true probability in this setting. Herder performed best (AUC 0.77) when PET-CT was available. Low agreement between CT-only models on intermediate-risk nodules. Clinical judgment and PET-CT data should take precedence.';
+  } else if(ctx==='screening'){
+    banner.style.display='';
+    banner.innerHTML='<strong>⚠ Screening context:</strong> Brock was derived and validated in screening populations (5.5% prevalence) and is most appropriate here. Mayo Clinic model was derived from incidentally detected nodules (23% prevalence) and may overestimate in screening. Herder requires PET-CT which is not routine in screening programs.';
+  } else {
+    banner.style.display='none';
+  }
+
+  // Summary
+  var probs=[M,B,H,I].filter(function(x){return x!==null;});
+  var hiP=probs.length?Math.max.apply(null,probs):0;
+  var hiCat=H!==null?rcat(hiP,true):rcat(hiP,false);
+  var hiCount=probs.filter(function(x){return x>=0.65;}).length;
+  g('s-hi').textContent=pct(hiP);g('s-hi').className='met-val '+cc(hiCat);
+  g('s-hi-src').textContent='Nodule '+(selIdx+1)+(nodules.length>1?(manualSel?' (manual)':(nodules.length>1?' (auto)':'')):'');
+  g('s-vdt').textContent=vdtOn?Math.round(V)+'d':(DS.vdt?'enter sizes':'—');
+  g('s-vdt').className='met-val '+(vdtOn?(V<=400?'hi':V<=900?'intc':'low'):'');
+  g('s-vdt-sub').textContent=vdtOn?(V<=400?'Malignant kinetics':V<=900?'Intermediate':'Benign pattern'):'';
+  g('s-ct').textContent=hiCount+'/'+probs.length;
+
+  var nodLabel='<span class="nod-used">Nodule '+(selIdx+1)+(nodules.length>1?(manualSel?' — manual':' — auto'):'')+'</span><br>';
+  var html='';
+
+  // Warning computations
+  var mw=getWarnings('mayo',n,ctx),bw=getWarnings('brock',n,ctx),hw=getWarnings('herder',n,ctx),iw=getWarnings('bimc',n,ctx),fw=getWarnings('fleisch',n,ctx),vw=getWarnings('vdt',n,ctx);
+  function rowCls(ws){var hasE=ws.some(function(w){return w.l==='e';});var hasW=ws.length>0;return hasE?'has-err':hasW?'has-warn':'';}
+
+  // Mayo
+  var mc=rcat(M,false);
+  html+='<tr class="'+rowCls(mw)+'"><td><p class="mname">Mayo Clinic</p><p class="mref">Swensen et al., Arch Intern Med 1997</p><p class="mvars">Age · smoke · size · spiculation · upper lobe · prior Ca · derived 4–30 mm, solid, incidental</p></td>';
+  html+='<td>'+nodLabel+'<p class="pval '+cc(mc)+'">'+pct(M)+'</p></td><td>'+pill(mc)+'</td><td><span class="tnote">ACCP · no PET term</span>'+wchipsHtml(mw)+'</td></tr>';
+
+  // Brock
+  var bc=rcat(B,false);
+  html+='<tr class="'+rowCls(bw)+'"><td><p class="mname">Brock (McWilliams)</p><p class="mref">McWilliams et al., NEJM 2013</p><p class="mvars">Adds sex · family hx · emphysema · composition · count · derived screening pop, age 40–74</p></td>';
+  html+='<td>'+nodLabel+'<p class="pval '+cc(bc)+'">'+pct(B)+'</p></td><td>'+pill(bc)+'</td><td><span class="tnote">ACCP · count = '+nodules.length+'</span>'+wchipsHtml(bw)+'</td></tr>';
+
+  // Herder
+  if(H!==null){
+    var hc=rcat(H,true);
+    html+='<tr class="'+rowCls(hw)+'"><td><p class="mname">Herder</p><p class="mref">Herder et al., Chest 2005</p><p class="mvars">PET-CT integrated · best calibrated in biopsy-referred settings · n=106</p></td>';
+    html+='<td>'+nodLabel+'<p class="pval '+cc(hc)+'">'+pct(H)+'</p></td><td>'+pill(hc)+'</td><td><span class="tnote">BTS: &lt;10% / 10–70% / &gt;70%</span>'+wchipsHtml(hw)+'</td></tr>';
+  } else {
+    html+='<tr class="off"><td><p class="mname">Herder</p><p class="mref">Herder et al., Chest 2005</p></td>';
+    html+='<td colspan="2"><span class="needs-tag">Requires FDG-PET data</span></td><td><span class="tnote">Enable FDG-PET toggle</span></td></tr>';
+  }
+
+  // BIMC
+  var ic=rcat(I,false);
+  var chips=C.chips.map(function(c){return'<span class="lrc'+(c.on?' on':'')+'">'+c.l+' ×'+c.v.toFixed(3)+'</span>';}).join('');
+  html+='<tr class="'+rowCls(iw)+'"><td><p class="mname">BIMC (Soardi)</p><p class="mref">Soardi et al., Eur Radiol 2015</p><p class="mvars">Bayesian · exact ESM LRs · solid 4–30 mm only</p><div class="lr-chips">'+chips+'</div></td>';
+  html+='<td>'+nodLabel+'<p class="pval '+cc(ic)+'">'+pct(I)+'</p></td><td>'+pill(ic)+'</td><td><span class="tnote">ACCP · inactive = LR 1.0</span>'+wchipsHtml(iw)+'</td></tr>';
+
+  // Fleischner
+  html+='<tr class="'+rowCls(fw)+'"><td><p class="mname">Fleischner 2017</p><p class="mref">MacMahon et al., Radiology 2017</p><p class="mvars">Management guidance · not a probability score · adults with incidental nodules</p></td>';
+  html+='<td colspan="2"><p style="font-size:12px;font-weight:600;font-family:sans-serif;color:var(--text)">'+F.rec+'</p><p class="psub">'+F.note+'</p></td>';
+  html+='<td>'+pill(F.cat,{low:'Low priority',intc:'Surveillance',high:'Tissue sampling'}[F.cat])+wchipsHtml(fw)+'</td></tr>';
+
+  // VDT
+  if(DS.vdt){
+    var vc='na',vr='—',vn='Enter sizes and interval';
+    if(vdtOn){if(V<=400){vc='high';vr=Math.round(V)+' days';vn='25–400 d → malignant kinetics';}else if(V<=900){vc='intc';vr=Math.round(V)+' days';vn='401–900 d → intermediate';}else{vc='low';vr=Math.round(V)+' days';vn='>900 d → benign pattern';}}
+    else if(V!==null&&V<0){vc='low';vr='Shrinking';vn='Nodule is decreasing in size';}
+    html+='<tr class="'+rowCls(vw)+'"><td><p class="mname">BTS VDT</p><p class="mref">Callister et al., Thorax 2015</p><p class="mvars">Two-point measurement · malignant 25–400 d (solid)</p></td>';
+    html+='<td>'+nodLabel+'<p class="pval '+(vc==='na'?'':cc(vc))+'">'+vr+'</p></td><td>'+pill(vc==='na'?'na':vc,{low:'Benign',intc:'Intermediate',high:'Malignant',na:'—'}[vc])+'</td>';
+    html+='<td><span class="tnote">'+vn+'</span>'+wchipsHtml(vw)+'</td></tr>';
+  } else {
+    html+='<tr class="off"><td><p class="mname">BTS VDT</p><p class="mref">Callister et al., Thorax 2015</p></td>';
+    html+='<td colspan="2"><span class="needs-tag">Requires two-point measurements</span></td><td><span class="tnote">Enable size measurements toggle</span></td></tr>';
+  }
+  g('tbody').innerHTML=html;
+
+  // Interpretation
+  var items=[];
+  if(nodules.length>1) items.push({c:'info',t:'Nodule '+(selIdx+1)+' is '+(manualSel?'manually':'auto-')+' selected. Click a nodule card to switch; "↺ Auto-select" to reset.'});
+  if(H!==null&&H>=0.90) items.push({c:'hi',t:'Herder: '+pct(H)+' — exceeds 70% BTS surgical threshold. Tissue diagnosis is indicated. A negative biopsy requires reassessment.'});
+  if(I>=0.90) items.push({c:'hi',t:'BIMC: '+pct(I)+' (exact Soardi 2015 LRs). VDT-derived LR of 14.472 is the dominant driver, substantially outweighing the never-smoker and lower-lobe terms that suppress CT-only models.'});
+  if(vdtOn&&V<=400) items.push({c:'hi',t:'VDT '+Math.round(V)+' d: within the 25–400 d malignant kinetic window. BTS considers this independently sufficient to prompt tissue evaluation.'});
+  if(M<0.25&&B<0.30) items.push({c:'intc',t:'CT-only models (Mayo '+pct(M)+', Brock '+pct(B)+'): structurally suppressed in never-smokers with lower-lobe non-spiculated nodules. Do not use as primary arbiters when PET and growth data are available.'});
+  if(ctx==='biopsy') items.push({c:'intc',t:'Biopsy-referred setting: Heideman et al. (CHEST Pulm 2024) showed CT-only models had AUC ~0.70 with poor calibration and likely underestimate probability. Herder (AUC 0.77 with PET) is the most reliable model in this context. <5% of biopsy-referred nodules fall into the "low-risk" category by any CT model.'});
+  items.push({c:'info',t:'Fleischner 2017: solid nodule >8 mm'+(DS.pet?' with positive PET — routes to tissue sampling.':' — consider CT 3 mo, PET-CT, or tissue sampling.')});
+  g('interp').innerHTML=items.map(function(it){return'<div class="iitem"><div class="dot '+it.c+'"></div><p class="itxt">'+it.t+'</p></div>';}).join('');
+}
+
+buildNoduleCards();render();
+</script>
+</body>
+</html>
