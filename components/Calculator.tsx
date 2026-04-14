@@ -32,12 +32,12 @@ const INITIAL_NODULES: Nodule[] = [
   {
     d: 21, nt: 'solid', loc: 'lower', sp: false, edges: 'lobulated',
     pet: 'intense', suv: 6.4, s1: 10, s2: 21, d1: '2025-07-01', d2: '2026-04-01',
-    den: 'gt_neg30', enh: 'unknown',
+    den: 'gt_neg30', enh: 'lt15',
   },
   {
     d: 14, nt: 'solid', loc: 'lower', sp: false, edges: 'lobulated',
     pet: 'faint', suv: 2.1, s1: 0, s2: 14, d1: '2025-07-01', d2: '2026-04-01',
-    den: 'gt_neg30', enh: 'unknown',
+    den: 'gt_neg30', enh: 'lt15',
   },
 ];
 
@@ -45,6 +45,16 @@ const INITIAL_DS: DataSwitches = { pet: true, vdt: true, enh: false, den: false 
 
 const INITIAL_PATIENT: PatientInputs = {
   age: 60, sex: 'female', smoker: 'never', packyears: 0,
+  priorcancer: false, familyhx: false, emphysema: false,
+  ctx: 'incidental', prior: 30,
+};
+
+// ── Blank state (used by Clear button) ────────────────────────────────────
+
+const BLANK_NODULES: Nodule[] = [defaultNodule()];
+const BLANK_DS: DataSwitches = { pet: false, vdt: false, enh: false, den: false };
+const BLANK_PATIENT: PatientInputs = {
+  age: 0, sex: 'female', smoker: 'never', packyears: 0,
   priorcancer: false, familyhx: false, emphysema: false,
   ctx: 'incidental', prior: 30,
 };
@@ -132,6 +142,15 @@ export default function Home() {
     setManualSel(false);
   }
 
+  function resetForm() {
+    setDs(BLANK_DS);
+    setNodules(BLANK_NODULES);
+    setPatient(BLANK_PATIENT);
+    setSelIdx(0);
+    setManualSel(false);
+    closeTT();
+  }
+
   function openTT(noduleIndex: number, btn: HTMLButtonElement) {
     // Toggle: if already open for the same nodule, close it
     if (tt && tt.noduleIndex === noduleIndex) {
@@ -185,11 +204,11 @@ export default function Home() {
   return (
     <>
       <header>
-        <h1>Pulmonary Nodule Malignancy Risk</h1>
-        <p>
-          Mayo · Brock · Herder · BIMC · Fleischner 2017 · BTS VDT &nbsp;·&nbsp; For qualified
-          clinician use only
-        </p>
+        <div className="hdr-left">
+          <h1>Pulmonary Nodule Malignancy Risk</h1>
+          <p>Mayo · Brock · Herder · BIMC · Fleischner 2017 · BTS VDT &nbsp;·&nbsp; For qualified clinician use only</p>
+        </div>
+        <button className="clear-btn" onClick={resetForm}>Clear</button>
       </header>
 
       {tt && (
