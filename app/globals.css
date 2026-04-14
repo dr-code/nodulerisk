@@ -161,6 +161,11 @@ input[type=date]:focus{border-color:var(--accent);}
 .vdt-interval{font-size:11px;font-family:sans-serif;padding:5px 8px;border-radius:var(--rsm);margin-top:2px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;gap:6px;}
 .vdt-days-val{font-weight:600;font-size:13px;color:var(--accent);font-family:sans-serif;}
 .vdt-days-empty{color:var(--text3);font-style:italic;}
+/* ── Empty / blank states ─────────────────────────────────────────────────*/
+.no-nodules{font-size:12px;font-family:sans-serif;color:var(--text3);text-align:center;padding:18px 10px;border:1.5px dashed var(--border2);border-radius:var(--radius);margin-top:2px;}
+.empty-results{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;padding:32px 24px;text-align:center;}
+.empty-results-title{font-size:15px;font-weight:600;font-family:sans-serif;color:var(--text2);margin-bottom:8px;}
+.empty-results-sub{font-size:12px;font-family:sans-serif;color:var(--text3);line-height:1.6;max-width:280px;}
 /* ── Mobile ────────────────────────────────────────────────────────────────*/
 /* Prevent iOS Safari from zooming on input focus (requires font-size ≥ 16px) */
 @media(max-width:768px){
