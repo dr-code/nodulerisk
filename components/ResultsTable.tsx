@@ -222,7 +222,139 @@ export default function ResultsTable({
         </div>
       )}
 
-      {/* Results table */}
+      {/* ── Mobile card layout (hidden on desktop via CSS) ── */}
+      <div className="m-results">
+
+        {/* Mayo */}
+        <div className={'m-card' + (warnings.mayo.some(w => w.l === 'e') ? ' has-err' : warnings.mayo.length ? ' has-warn' : '')}>
+          <div className="m-card-hdr">
+            <div className="m-card-title">
+              <p className="mname">Mayo Clinic</p>
+              <p className="mref">Swensen et al., Arch Intern Med 1997</p>
+            </div>
+            <Pill cat={mc} />
+          </div>
+          <p className={'m-pval ' + cc(mc)}>{pct(mayo)}</p>
+          <p className="mvars">Age · smoke · size · spiculation · upper lobe · prior Ca · derived 4–30 mm, solid, incidental</p>
+          <WChips warnings={warnings.mayo} />
+        </div>
+
+        {/* Brock */}
+        <div className={'m-card' + (warnings.brock.some(w => w.l === 'e') ? ' has-err' : warnings.brock.length ? ' has-warn' : '')}>
+          <div className="m-card-hdr">
+            <div className="m-card-title">
+              <p className="mname">Brock (McWilliams)</p>
+              <p className="mref">McWilliams et al., NEJM 2013</p>
+            </div>
+            <Pill cat={bc} />
+          </div>
+          <p className={'m-pval ' + cc(bc)}>{pct(brock)}</p>
+          <p className="mvars">Adds sex · family hx · emphysema · composition · count · derived screening pop, age 40–74</p>
+          <WChips warnings={warnings.brock} />
+        </div>
+
+        {/* Herder */}
+        {herder !== null && hc !== null ? (
+          <div className={'m-card' + (warnings.herder.some(w => w.l === 'e') ? ' has-err' : warnings.herder.length ? ' has-warn' : '')}>
+            <div className="m-card-hdr">
+              <div className="m-card-title">
+                <p className="mname">Herder</p>
+                <p className="mref">Herder et al., Chest 2005</p>
+              </div>
+              <Pill cat={hc} />
+            </div>
+            <p className={'m-pval ' + cc(hc)}>{pct(herder)}</p>
+            <p className="mvars">PET-CT integrated · best calibrated in biopsy-referred settings</p>
+            <p className="tnote">BTS: &lt;10% / 10–70% / &gt;70%</p>
+            <WChips warnings={warnings.herder} />
+          </div>
+        ) : (
+          <div className="m-card off">
+            <div className="m-card-hdr">
+              <div className="m-card-title">
+                <p className="mname">Herder</p>
+                <p className="mref">Herder et al., Chest 2005</p>
+              </div>
+              <span className="needs-tag">Requires FDG-PET data</span>
+            </div>
+          </div>
+        )}
+
+        {/* BIMC */}
+        <div className={'m-card' + (warnings.bimc.some(w => w.l === 'e') ? ' has-err' : warnings.bimc.length ? ' has-warn' : '')}>
+          <div className="m-card-hdr">
+            <div className="m-card-title">
+              <p className="mname">BIMC (Soardi)</p>
+              <p className="mref">Soardi et al., Eur Radiol 2015</p>
+            </div>
+            <Pill cat={ic} />
+          </div>
+          <p className={'m-pval ' + cc(ic)}>{pct(bimc)}</p>
+          <p className="mvars">Bayesian · exact ESM LRs · solid 4–30 mm only</p>
+          <div className="lr-chips">
+            {bimcLRs.chips.map((chip, i) => (
+              <span key={i} className={'lrc' + (chip.on ? ' on' : '')}>
+                {chip.l} ×{chip.v.toFixed(3)}
+              </span>
+            ))}
+          </div>
+          <WChips warnings={warnings.bimc} />
+        </div>
+
+        {/* Fleischner */}
+        <div className={'m-card' + (warnings.fleisch.some(w => w.l === 'e') ? ' has-err' : warnings.fleisch.length ? ' has-warn' : '')}>
+          <div className="m-card-hdr">
+            <div className="m-card-title">
+              <p className="mname">Fleischner 2017</p>
+              <p className="mref">MacMahon et al., Radiology 2017</p>
+            </div>
+            <Pill
+              cat={fleischner.cat}
+              label={{ low: 'Low priority', intc: 'Surveillance', high: 'Tissue sampling' }[fleischner.cat]}
+            />
+          </div>
+          <p className="fleisch-rec">{fleischner.rec}</p>
+          <p className="psub" style={{ marginTop: 3 }}>{fleischner.note}</p>
+          <WChips warnings={warnings.fleisch} />
+        </div>
+
+        {/* VDT */}
+        {ds.vdt ? (
+          <div className={'m-card' + (warnings.vdt.some(w => w.l === 'e') ? ' has-err' : warnings.vdt.length ? ' has-warn' : '')}>
+            <div className="m-card-hdr">
+              <div className="m-card-title">
+                <p className="mname">BTS VDT</p>
+                <p className="mref">Callister et al., Thorax 2015</p>
+              </div>
+              <Pill
+                cat={vCat}
+                label={{ low: 'Benign', intc: 'Intermediate', high: 'Malignant', na: '—' }[vCat]}
+              />
+            </div>
+            <p className={'m-pval ' + (vCat === 'na' ? '' : cc(vCat))}>{vResult}</p>
+            <p className="mvars">Two-point measurement · malignant 25–400 d (solid)</p>
+            <p className="tnote">{vNote}</p>
+            <WChips warnings={warnings.vdt} />
+          </div>
+        ) : (
+          <div className="m-card off">
+            <div className="m-card-hdr">
+              <div className="m-card-title">
+                <p className="mname">BTS VDT</p>
+                <p className="mref">Callister et al., Thorax 2015</p>
+              </div>
+              <span className="needs-tag">Requires size data</span>
+            </div>
+          </div>
+        )}
+
+        <div className="disc">
+          <strong>ACCP:</strong> Low &lt;5% · Int 5–65% · High &gt;65%.&ensp;
+          <strong>BTS/Herder:</strong> Low &lt;10% · Int 10–70% · High &gt;70%.
+        </div>
+      </div>
+
+      {/* Results table (hidden on mobile via CSS) */}
       <div className="rtbl-wrap">
         <table>
           <thead>
