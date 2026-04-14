@@ -147,7 +147,7 @@ export function defaultNodule(): Nodule {
     d1: '',
     d2: '',
     den: 'gt_neg30',
-    enh: 'unknown',
+    enh: 'lt15',
   };
 }
 
@@ -422,6 +422,7 @@ export function getWarnings(
     if (n.d < 4) w.push({ l: 'e', t: 'Below validated range (4–30 mm solid nodules only)' });
     if (n.d > 30) w.push({ l: 'e', t: 'Above validated range (4–30 mm solid nodules only)' });
     if (n.nt !== 'solid') w.push({ l: 'e', t: 'BIMC validated for solid nodules only — subsolid inputs produce unvalidated results' });
+    if (p.prior < 1 || p.prior > 99) w.push({ l: 'e', t: 'Prior probability must be 1–99% — BIMC result is 0 until a valid value is entered' });
     if (ds.enh) w.push({ l: 'w', t: 'Enhancement LR requires dedicated dynamic contrast CT, not incidental contrast' });
   }
 

@@ -92,7 +92,9 @@ export default function ResultsTable({
   // Summary metrics
   const probs = [mayo, brock, herder, bimc].filter((x): x is number => x !== null);
   const hiP = probs.length ? Math.max(...probs) : 0;
-  const hiCat = herder !== null ? rcat(hiP, true) : rcat(hiP, false);
+  // Use BTS threshold only when Herder produced the highest probability; otherwise ACCP.
+  const herderIsHighest = herder !== null && herder === hiP;
+  const hiCat = herderIsHighest ? rcat(hiP, true) : rcat(hiP, false);
   const hiCount = probs.filter((x) => x >= 0.65).length;
 
   const nodLabel = (
@@ -352,9 +354,7 @@ export default function ResultsTable({
                 </p>
               </td>
               <td colSpan={2}>
-                <p style={{ fontSize: '12px', fontWeight: 600, fontFamily: 'sans-serif', color: 'var(--text)' }}>
-                  {fleischner.rec}
-                </p>
+                <p className="fleisch-rec">{fleischner.rec}</p>
                 <p className="psub">{fleischner.note}</p>
               </td>
               <td>
