@@ -51,12 +51,12 @@ const INITIAL_PATIENT: PatientInputs = {
 
 // ── Blank state (used by Clear button) ────────────────────────────────────
 
-const BLANK_NODULES: Nodule[] = [defaultNodule()];
+const BLANK_NODULES: Nodule[] = [];
 const BLANK_DS: DataSwitches = { pet: false, vdt: false, enh: false, den: false };
 const BLANK_PATIENT: PatientInputs = {
-  age: 0, sex: 'female', smoker: 'never', packyears: 0,
+  age: 0, sex: '', smoker: '', packyears: 0,
   priorcancer: false, familyhx: false, emphysema: false,
-  ctx: 'incidental', prior: 30,
+  ctx: '', prior: 30,
 };
 
 // ── Auto-select logic ──────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ export default function Home() {
   function changeCount(delta: number) {
     setNodules((prev) => {
       const n = prev.length + delta;
-      if (n < 1 || n > 6) return prev;
+      if (n < 0 || n > 6) return prev;
       if (delta > 0) return [...prev, defaultNodule()];
       return prev.slice(0, -1);
     });
@@ -179,25 +179,33 @@ export default function Home() {
     setPatient((prev) => ({ ...prev, [key]: value }));
   }
 
-  // ── Computed results for selected nodule ─────────────────────────────
+  // ── Form readiness — required before running any model ───────────────
 
-  const n = nodules[effectiveSelIdx] ?? nodules[0];
-  const M = mayoFor(n, patient);
-  const B = brockFor(n, patient, nodules.length);
-  const H = herderFor(n, patient, ds);
-  const I = bimcFor(n, patient, ds);
-  const C = bimcLRsFor(n, patient, ds);
-  const V = vdtFor(n, ds);
-  const F = fleischFor(n, ds);
+  const formReady =
+    nodules.length > 0 &&
+    patient.sex !== '' &&
+    patient.smoker !== '' &&
+    patient.ctx !== '';
 
-  const allWarnings = {
-    mayo: getWarnings('mayo', n, patient, ds, nodules.length),
-    brock: getWarnings('brock', n, patient, ds, nodules.length),
-    herder: getWarnings('herder', n, patient, ds, nodules.length),
-    bimc: getWarnings('bimc', n, patient, ds, nodules.length),
-    fleisch: getWarnings('fleisch', n, patient, ds, nodules.length),
-    vdt: getWarnings('vdt', n, patient, ds, nodules.length),
-  };
+  // ── Computed results for selected nodule (only when form is complete) ─
+
+  const activeNodule = nodules[effectiveSelIdx] ?? nodules[0];
+  const M = formReady ? mayoFor(activeNodule, patient) : 0;
+  const B = formReady ? brockFor(activeNodule, patient, nodules.length) : 0;
+  const H = formReady ? herderFor(activeNodule, patient, ds) : null;
+  const I = formReady ? bimcFor(activeNodule, patient, ds) : 0;
+  const C = formReady ? bimcLRsFor(activeNodule, patient, ds) : { chips: [], product: 1 };
+  const V = formReady ? vdtFor(activeNodule, ds) : null;
+  const F = formReady ? fleischFor(activeNodule, ds) : { rec: '—', note: '—', cat: 'low' as const };
+
+  const allWarnings = formReady ? {
+    mayo: getWarnings('mayo', activeNodule, patient, ds, nodules.length),
+    brock: getWarnings('brock', activeNodule, patient, ds, nodules.length),
+    herder: getWarnings('herder', activeNodule, patient, ds, nodules.length),
+    bimc: getWarnings('bimc', activeNodule, patient, ds, nodules.length),
+    fleisch: getWarnings('fleisch', activeNodule, patient, ds, nodules.length),
+    vdt: getWarnings('vdt', activeNodule, patient, ds, nodules.length),
+  } : { mayo: [], brock: [], herder: [], bimc: [], fleisch: [], vdt: [] };
 
   // ── Render ────────────────────────────────────────────────────────────
 
@@ -271,6 +279,7 @@ export default function Home() {
                 value={patient.sex}
                 onChange={(e) => setPatientField('sex', e.target.value as PatientInputs['sex'])}
               >
+                <option value="" disabled>— select —</option>
                 <option value="female">Female</option>
                 <option value="male">Male</option>
               </select>
@@ -282,8 +291,9 @@ export default function Home() {
               <select
                 id="smoker"
                 value={patient.smoker}
-                onChange={(e) => setPatientField('smoker', e.target.value as SmokerStatus)}
+                onChange={(e) => setPatientField('smoker', e.target.value as SmokerStatus | '')}
               >
+                <option value="" disabled>— select —</option>
                 <option value="never">Never smoker</option>
                 <option value="former">Former smoker</option>
                 <option value="current">Current smoker</option>
@@ -341,8 +351,9 @@ export default function Home() {
               <select
                 id="ctx"
                 value={patient.ctx}
-                onChange={(e) => setPatientField('ctx', e.target.value as ClinicalContext)}
+                onChange={(e) => setPatientField('ctx', e.target.value as ClinicalContext | '')}
               >
+                <option value="" disabled>— select —</option>
                 <option value="incidental">Incidentally detected (clinical CT)</option>
                 <option value="screening">Lung cancer screening program</option>
                 <option value="biopsy">Referred for invasive workup / biopsy</option>
@@ -364,28 +375,36 @@ export default function Home() {
             )}
           </div>
 
-          <div className="nod-cards">
-            {nodules.map((nod, i) => {
-              const nodScore = scoreNodule(nod, patient, ds);
-              const nodCat = ds.pet ? rcat(nodScore, true) : rcat(nodScore, false);
-              return (
-                <NoduleCard
-                  key={i}
-                  nodule={nod}
-                  index={i}
-                  isSelected={i === effectiveSelIdx}
-                  isManual={manualSel}
-                  noduleCount={nodules.length}
-                  ds={ds}
-                  score={nodScore}
-                  scoreCategory={nodCat}
-                  onChange={handleNoduleChange}
-                  onSelect={handleNoduleSelect}
-                  onOpenEdgeTT={openTT}
-                />
-              );
-            })}
-          </div>
+          {nodules.length === 0 ? (
+            <div className="no-nodules">
+              Use <strong>+</strong> to add a nodule
+            </div>
+          ) : (
+            <div className="nod-cards">
+              {nodules.map((nod, i) => {
+                const nodScore = formReady ? scoreNodule(nod, patient, ds) : 0;
+                const nodCat = formReady
+                  ? (ds.pet ? rcat(nodScore, true) : rcat(nodScore, false))
+                  : 'low';
+                return (
+                  <NoduleCard
+                    key={i}
+                    nodule={nod}
+                    index={i}
+                    isSelected={i === effectiveSelIdx}
+                    isManual={manualSel}
+                    noduleCount={nodules.length}
+                    ds={ds}
+                    score={nodScore}
+                    scoreCategory={nodCat}
+                    onChange={handleNoduleChange}
+                    onSelect={handleNoduleSelect}
+                    onOpenEdgeTT={openTT}
+                  />
+                );
+              })}
+            </div>
+          )}
 
           {/* BIMC prior */}
           <div className="slbl">BIMC prior probability</div>
@@ -408,21 +427,32 @@ export default function Home() {
 
         {/* ── Right panel: results ── */}
         <div className="res">
-          <ResultsTable
-            patient={patient}
-            noduleIndex={effectiveSelIdx}
-            noduleCount={nodules.length}
-            isManual={manualSel}
-            ds={ds}
-            mayo={M}
-            brock={B}
-            herder={H}
-            bimc={I}
-            bimcLRs={C}
-            vdt={V}
-            fleischner={F}
-            warnings={allWarnings}
-          />
+          {formReady ? (
+            <ResultsTable
+              patient={patient}
+              noduleIndex={effectiveSelIdx}
+              noduleCount={nodules.length}
+              isManual={manualSel}
+              ds={ds}
+              mayo={M}
+              brock={B}
+              herder={H}
+              bimc={I}
+              bimcLRs={C}
+              vdt={V}
+              fleischner={F}
+              warnings={allWarnings}
+            />
+          ) : (
+            <div className="empty-results">
+              <p className="empty-results-title">No results yet</p>
+              <p className="empty-results-sub">
+                {nodules.length === 0
+                  ? 'Add at least one nodule and complete patient demographics.'
+                  : 'Complete sex, smoking status, and clinical context to see results.'}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </>

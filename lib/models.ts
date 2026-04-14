@@ -36,13 +36,13 @@ export interface DataSwitches {
 
 export interface PatientInputs {
   age: number;
-  sex: 'male' | 'female';
-  smoker: SmokerStatus;
+  sex: 'male' | 'female' | '';
+  smoker: SmokerStatus | '';
   packyears: number;
   priorcancer: boolean;
   familyhx: boolean;
   emphysema: boolean;
-  ctx: ClinicalContext;
+  ctx: ClinicalContext | '';
   prior: number;
 }
 
