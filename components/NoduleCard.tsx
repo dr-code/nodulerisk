@@ -1,7 +1,8 @@
 'use client';
 
-import { calcDaysBetween, pct, cc, EDGES } from '@/lib/models';
-import type { Nodule, DataSwitches, EdgeKey, RiskCategory } from '@/lib/models';
+import { useState } from 'react';
+import { calcDaysBetween, pct, cc, EDGES, VDT_METHODS } from '@/lib/models';
+import type { Nodule, DataSwitches, EdgeKey, RiskCategory, VdtMethod } from '@/lib/models';
 
 interface NoduleCardProps {
   nodule: Nodule;
@@ -31,6 +32,7 @@ export default function NoduleCard({
   onOpenEdgeTT,
 }: NoduleCardProps) {
   const ddays = calcDaysBetween(nodule.d1, nodule.d2);
+  const [vdtInfoOpen, setVdtInfoOpen] = useState<VdtMethod | null>(null);
 
   function handleEdgeBtnClick(e: React.MouseEvent<HTMLButtonElement>) {
     e.stopPropagation();
@@ -179,28 +181,7 @@ export default function NoduleCard({
         {ds.vdt && (
           <>
             <div className="ncard-sep" />
-            <div className="fg">
-              <div className="fld">
-                <label>Prior size (mm)</label>
-                <input
-                  type="number"
-                  id={'n' + index + '_s1'}
-                  value={nodule.s1}
-                  min={0}
-                  onChange={(e) => onChange(index, 's1', +e.target.value)}
-                />
-              </div>
-              <div className="fld">
-                <label>Current size (mm)</label>
-                <input
-                  type="number"
-                  id={'n' + index + '_s2'}
-                  value={nodule.s2}
-                  min={1}
-                  onChange={(e) => onChange(index, 's2', +e.target.value)}
-                />
-              </div>
-            </div>
+            {/* Dates */}
             <div className="fg">
               <div className="fld">
                 <label>Date of 1st CT</label>
@@ -228,7 +209,7 @@ export default function NoduleCard({
                 </>
               ) : ddays !== null && ddays < 0 ? (
                 <span style={{ color: 'var(--int)' }}>
-                  ⚠ 2nd CT date is before 1st CT date
+                  &#9888; 2nd CT date is before 1st CT date
                 </span>
               ) : (
                 <span className="vdt-days-empty">
@@ -236,6 +217,132 @@ export default function NoduleCard({
                 </span>
               )}
             </div>
+            {/* VDT method selector */}
+            <div className="fld">
+              <label>VDT formula</label>
+              <div className="vdt-method-row">
+                {VDT_METHODS.map((m) => (
+                  <div
+                    key={m.key}
+                    className={'vdt-method-opt' + (nodule.vdtMethod === m.key ? ' sel' : '')}
+                  >
+                    <label className="vdt-method-lbl">
+                      <input
+                        type="radio"
+                        name={'n' + index + '_vdtm'}
+                        value={m.key}
+                        checked={nodule.vdtMethod === m.key}
+                        onChange={() => {
+                          onChange(index, 'vdtMethod', m.key);
+                          setVdtInfoOpen(null);
+                        }}
+                      />
+                      {m.label}
+                    </label>
+                    <button
+                      className={'info-btn' + (vdtInfoOpen === m.key ? ' active' : '')}
+                      title={m.shortDesc}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setVdtInfoOpen(vdtInfoOpen === m.key ? null : m.key);
+                      }}
+                    >
+                      ?
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {vdtInfoOpen && (
+              <div className="vdt-info-panel">
+                {VDT_METHODS.find((m) => m.key === vdtInfoOpen)?.desc}
+              </div>
+            )}
+            {/* Size inputs — vary by method */}
+            {nodule.vdtMethod === 'volumetric' && (
+              <div className="fg">
+                <div className="fld">
+                  <label>Volume scan 1 (mm&#179;)</label>
+                  <input
+                    type="number"
+                    id={'n' + index + '_v1'}
+                    value={nodule.v1 || ''}
+                    min={0}
+                    placeholder="0"
+                    onChange={(e) => onChange(index, 'v1', +e.target.value)}
+                  />
+                </div>
+                <div className="fld">
+                  <label>Volume scan 2 (mm&#179;)</label>
+                  <input
+                    type="number"
+                    id={'n' + index + '_v2'}
+                    value={nodule.v2 || ''}
+                    min={0}
+                    placeholder="0"
+                    onChange={(e) => onChange(index, 'v2', +e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+            {nodule.vdtMethod === 'diametric' && (
+              <>
+                <div className="fg c3">
+                  <div className="fld">
+                    <label>X&#8321; (mm)</label>
+                    <input type="number" id={'n' + index + '_x1'} value={nodule.x1 || ''} min={0} placeholder="0" onChange={(e) => onChange(index, 'x1', +e.target.value)} />
+                  </div>
+                  <div className="fld">
+                    <label>Y&#8321; (mm)</label>
+                    <input type="number" id={'n' + index + '_y1'} value={nodule.y1 || ''} min={0} placeholder="0" onChange={(e) => onChange(index, 'y1', +e.target.value)} />
+                  </div>
+                  <div className="fld">
+                    <label>Z&#8321; (mm)</label>
+                    <input type="number" id={'n' + index + '_z1'} value={nodule.z1 || ''} min={0} placeholder="0" onChange={(e) => onChange(index, 'z1', +e.target.value)} />
+                  </div>
+                </div>
+                <div className="fg c3">
+                  <div className="fld">
+                    <label>X&#8322; (mm)</label>
+                    <input type="number" id={'n' + index + '_x2'} value={nodule.x2 || ''} min={0} placeholder="0" onChange={(e) => onChange(index, 'x2', +e.target.value)} />
+                  </div>
+                  <div className="fld">
+                    <label>Y&#8322; (mm)</label>
+                    <input type="number" id={'n' + index + '_y2'} value={nodule.y2 || ''} min={0} placeholder="0" onChange={(e) => onChange(index, 'y2', +e.target.value)} />
+                  </div>
+                  <div className="fld">
+                    <label>Z&#8322; (mm)</label>
+                    <input type="number" id={'n' + index + '_z2'} value={nodule.z2 || ''} min={0} placeholder="0" onChange={(e) => onChange(index, 'z2', +e.target.value)} />
+                  </div>
+                </div>
+              </>
+            )}
+            {nodule.vdtMethod === 'spherical' && (
+              <div className="fg">
+                <div className="fld">
+                  <label>Diameter scan 1 (mm)</label>
+                  <input
+                    type="number"
+                    id={'n' + index + '_s1'}
+                    value={nodule.s1 || ''}
+                    min={0}
+                    placeholder="0"
+                    onChange={(e) => onChange(index, 's1', +e.target.value)}
+                  />
+                </div>
+                <div className="fld">
+                  <label>Diameter scan 2 (mm)</label>
+                  <input
+                    type="number"
+                    id={'n' + index + '_s2'}
+                    value={nodule.s2 || ''}
+                    min={0}
+                    placeholder="0"
+                    onChange={(e) => onChange(index, 's2', +e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
           </>
         )}
 

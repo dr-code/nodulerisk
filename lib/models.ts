@@ -10,6 +10,7 @@ export type SmokerStatus = 'never' | 'former' | 'current';
 export type ClinicalContext = 'incidental' | 'screening' | 'biopsy';
 export type RiskCategory = 'low' | 'intc' | 'high';
 export type WarningLevel = 'e' | 'w';
+export type VdtMethod = 'volumetric' | 'diametric' | 'spherical';
 
 export interface Nodule {
   d: number;
@@ -25,6 +26,15 @@ export interface Nodule {
   d2: string;
   den: DensityKey;
   enh: EnhancementKey;
+  vdtMethod: VdtMethod;
+  v1: number;
+  v2: number;
+  x1: number;
+  y1: number;
+  z1: number;
+  x2: number;
+  y2: number;
+  z2: number;
 }
 
 export interface DataSwitches {
@@ -148,8 +158,38 @@ export function defaultNodule(): Nodule {
     d2: '',
     den: 'gt_neg30',
     enh: 'lt15',
+    vdtMethod: 'volumetric',
+    v1: 0,
+    v2: 0,
+    x1: 0,
+    y1: 0,
+    z1: 0,
+    x2: 0,
+    y2: 0,
+    z2: 0,
   };
 }
+
+export const VDT_METHODS: { key: VdtMethod; label: string; shortDesc: string; desc: string }[] = [
+  {
+    key: 'volumetric',
+    label: 'Volumetric',
+    shortDesc: 'Uses CT volumetry measurements (mm³)',
+    desc: 'Calculates volume doubling time using user-entered nodule volume. Nodule volume should be measured by volumetry where possible. VDT = T \u00d7 ln(2) / ln(V\u2082/V\u2081)',
+  },
+  {
+    key: 'diametric',
+    label: 'Diametric',
+    shortDesc: 'Estimates volume from three diameters (X \u00d7 Y \u00d7 Z)',
+    desc: 'Estimates nodule volume using diameters in the X, Y and Z planes. Less accurate than volumetric method. Volume = X \u00d7 Y \u00d7 Z',
+  },
+  {
+    key: 'spherical',
+    label: 'Spherical',
+    shortDesc: 'Estimates volume from a single diameter',
+    desc: 'Used where nodule is relatively spherical in shape. Less accurate than volumetric method. Volume = (D\u00b3 \u00d7 \u03c0) / 6',
+  },
+];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -182,11 +222,28 @@ export function calcDaysBetween(d1: string, d2: string): number | null {
 // ── Models ─────────────────────────────────────────────────────────────────
 
 export function vdtFor(n: Nodule, ds: DataSwitches): number | null {
-  if (!ds.vdt || !n.s1 || !n.s2 || n.s1 === n.s2) return null;
+  if (!ds.vdt) return null;
   const days = calcDaysBetween(n.d1, n.d2);
   if (!days) return null;
-  const v = (days * Math.LN2) / (3 * Math.log(n.s2 / n.s1));
-  return isFinite(v) && v !== 0 ? v : null;
+
+  const method = n.vdtMethod ?? 'volumetric';
+  let vol1: number, vol2: number;
+
+  if (method === 'volumetric') {
+    vol1 = n.v1;
+    vol2 = n.v2;
+  } else if (method === 'diametric') {
+    vol1 = n.x1 * n.y1 * n.z1;
+    vol2 = n.x2 * n.y2 * n.z2;
+  } else {
+    // spherical: V = π × D³ / 6
+    vol1 = (Math.pow(n.s1, 3) * Math.PI) / 6;
+    vol2 = (Math.pow(n.s2, 3) * Math.PI) / 6;
+  }
+
+  if (!vol1 || !vol2 || vol1 === vol2) return null;
+  const vdt = (days * Math.LN2) / Math.log(vol2 / vol1);
+  return isFinite(vdt) && vdt !== 0 ? vdt : null;
 }
 
 export function mayoFor(n: Nodule, p: PatientInputs): number {

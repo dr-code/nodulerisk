@@ -378,7 +378,7 @@ export default function ResultsTable({
               </td>
               <td>
                 {nodLabel}
-                <p className={'pval ' + cc(mc)}>{pct(mayo)}</p>
+                <p data-testid="mayo-pct" className={'pval ' + cc(mc)}>{pct(mayo)}</p>
               </td>
               <td>
                 <Pill cat={mc} />
@@ -401,7 +401,7 @@ export default function ResultsTable({
               </td>
               <td>
                 {nodLabel}
-                <p className={'pval ' + cc(bc)}>{pct(brock)}</p>
+                <p data-testid="brock-pct" className={'pval ' + cc(bc)}>{pct(brock)}</p>
               </td>
               <td>
                 <Pill cat={bc} />
@@ -424,7 +424,7 @@ export default function ResultsTable({
                 </td>
                 <td>
                   {nodLabel}
-                  <p className={'pval ' + cc(hc)}>{pct(herder)}</p>
+                  <p data-testid="herder-pct" className={'pval ' + cc(hc)}>{pct(herder)}</p>
                 </td>
                 <td>
                   <Pill cat={hc} />
@@ -465,7 +465,7 @@ export default function ResultsTable({
               </td>
               <td>
                 {nodLabel}
-                <p className={'pval ' + cc(ic)}>{pct(bimc)}</p>
+                <p data-testid="bimc-pct" className={'pval ' + cc(ic)}>{pct(bimc)}</p>
               </td>
               <td>
                 <Pill cat={ic} />
@@ -486,7 +486,7 @@ export default function ResultsTable({
                 </p>
               </td>
               <td colSpan={2}>
-                <p className="fleisch-rec">{fleischner.rec}</p>
+                <p data-testid="fleisch-rec" className="fleisch-rec">{fleischner.rec}</p>
                 <p className="psub">{fleischner.note}</p>
               </td>
               <td>
@@ -512,7 +512,7 @@ export default function ResultsTable({
                 </td>
                 <td>
                   {nodLabel}
-                  <p className={'pval ' + (vCat === 'na' ? '' : cc(vCat))}>{vResult}</p>
+                  <p data-testid="vdt-result" className={'pval ' + (vCat === 'na' ? '' : cc(vCat))}>{vResult}</p>
                 </td>
                 <td>
                   <Pill
