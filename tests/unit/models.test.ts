@@ -233,10 +233,22 @@ describe('herderFor', () => {
     expect(positive!).toBeGreaterThan(negative!);
   });
 
-  it('treats SUV > 2.5 as PET positive', () => {
-    const highSuv = herderFor({ ...BASE_NODULE, pet: 'none', suv: 3.0 }, BASE_PATIENT, DS_ALL_ON);
-    const lowSuv = herderFor({ ...BASE_NODULE, pet: 'none', suv: 1.0 }, BASE_PATIENT, DS_ALL_ON);
-    expect(highSuv!).toBeGreaterThan(lowSuv!);
+  it('produces graded probability by FDG uptake category (none < faint < moderate < intense)', () => {
+    // Herder is the Mayo+PET extension — graded qualitative uptake, not SUV threshold
+    const none     = herderFor({ ...BASE_NODULE, pet: 'none' },     BASE_PATIENT, DS_ALL_ON)!;
+    const faint    = herderFor({ ...BASE_NODULE, pet: 'faint' },    BASE_PATIENT, DS_ALL_ON)!;
+    const moderate = herderFor({ ...BASE_NODULE, pet: 'moderate' }, BASE_PATIENT, DS_ALL_ON)!;
+    const intense  = herderFor({ ...BASE_NODULE, pet: 'intense' },  BASE_PATIENT, DS_ALL_ON)!;
+    expect(none).toBeLessThan(faint);
+    expect(faint).toBeLessThan(moderate);
+    expect(moderate).toBeLessThan(intense);
+  });
+
+  it('is independent of raw SUV when qualitative uptake category is set to none', () => {
+    // With pet: 'none', SUV value should not change the Herder result
+    const highSuv = herderFor({ ...BASE_NODULE, pet: 'none', suv: 3.0 }, BASE_PATIENT, DS_ALL_ON)!;
+    const lowSuv  = herderFor({ ...BASE_NODULE, pet: 'none', suv: 1.0 }, BASE_PATIENT, DS_ALL_ON)!;
+    expect(highSuv).toBeCloseTo(lowSuv, 10);
   });
 });
 

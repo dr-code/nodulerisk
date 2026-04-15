@@ -7,8 +7,9 @@ import type {
   BimcLRResult,
   FleischnerResult,
   RiskCategory,
+  NextStep,
 } from '@/lib/models';
-import { pct, cc, rcat } from '@/lib/models';
+import { pct, cc, rcat, getNextSteps } from '@/lib/models';
 
 // ── Small helpers ──────────────────────────────────────────────────────────
 
@@ -88,6 +89,7 @@ export default function ResultsTable({
 }: ResultsTableProps) {
   const vdtOn = vdt !== null && vdt > 0;
   const ctx = patient.ctx;
+  const nextSteps = getNextSteps(mayo, brock, herder, vdt, fleischner);
 
   // Summary metrics
   const probs = [mayo, brock, herder, bimc].filter((x): x is number => x !== null);
@@ -170,6 +172,41 @@ export default function ResultsTable({
 
   return (
     <>
+      {/* Perifissural nodule callout */}
+      <div className="pfn-callout">
+        <div className="pfn-callout-hdr">
+          <span className="pfn-tag">Teaching point</span>
+          <span className="pfn-title">Rule out perifissural nodule (PFN) before proceeding</span>
+        </div>
+        <p className="pfn-body">
+          A <strong>typical PFN</strong> is a benign intrapulmonary lymph node — not a malignant nodule.
+          All five risk models below apply only to non-PFN nodules. If the nodule meets typical PFN criteria,
+          no follow-up is needed and the scores below are not valid.
+        </p>
+        <div className="pfn-criteria-grid">
+          <div className="pfn-crit yes">
+            <span className="pfn-crit-lbl">Typical PFN — no follow-up needed</span>
+            <ul>
+              <li>Attached to a pulmonary fissure</li>
+              <li>Homogeneous, solid, smooth margins</li>
+              <li>Shape: oval, lentiform, or triangular</li>
+              <li>0 of 919 PFNs were malignant at 5.5 y follow-up (de Hoop et al.)</li>
+              <li>Note: PFNs can show significant growth — this is not a sign of malignancy</li>
+            </ul>
+          </div>
+          <div className="pfn-crit no">
+            <span className="pfn-crit-lbl">Not a PFN — proceed with risk models</span>
+            <ul>
+              <li>Not fissure-attached</li>
+              <li>Heterogeneous density</li>
+              <li>Round or irregular shape</li>
+              <li>Spiculated or lobulated margins</li>
+              <li>Solid component growth in previously GGN lesion</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       {/* Summary metrics */}
       <div className="sum-grid">
         <div className="met">
@@ -264,7 +301,7 @@ export default function ResultsTable({
               <Pill cat={hc} />
             </div>
             <p className={'m-pval ' + cc(hc)}>{pct(herder)}</p>
-            <p className="mvars">PET-CT integrated · best calibrated in biopsy-referred settings</p>
+            <p className="mvars">Mayo+PET extension · graded uptake: faint/moderate/intense · BTS thresholds</p>
             <p className="tnote">BTS: &lt;10% / 10–70% / &gt;70%</p>
             <WChips warnings={warnings.herder} />
           </div>
@@ -419,7 +456,7 @@ export default function ResultsTable({
                   <p className="mname">Herder</p>
                   <p className="mref">Herder et al., Chest 2005</p>
                   <p className="mvars">
-                    PET-CT integrated · best calibrated in biopsy-referred settings · n=106
+                    Mayo+PET extension: y=−4.739+3.691×Mayo+PET_term · faint=+2.322 · moderate=+4.617 · intense=+4.771 · n=106
                   </p>
                 </td>
                 <td>
@@ -566,6 +603,30 @@ export default function ResultsTable({
           lobulated&rdquo; = &ldquo;Lobulated&rdquo; in ESM. Inactive inputs = LR 1.0. Blue chips =
           active inputs.
         </div>
+      </div>
+
+      {/* Next Steps section */}
+      <div className="next-steps">
+        <p className="ititle">Recommended next steps by guideline</p>
+        <p className="ns-note">
+          Steps are generated from model outputs. BTS pathway (Herder/Brock) is primary;
+          Mayo/ACCP and VDT are parallel supporting guidance. Specialist MDT review is required before any
+          management decision.
+        </p>
+        {nextSteps.map((step: NextStep, i) => (
+          <div key={i} className={'ns-row ns-' + step.priority}>
+            <div className="ns-left">
+              <span className={'ns-badge ns-badge-' + step.priority}>
+                {step.priority === 'urgent' ? 'Urgent' : step.priority === 'standard' ? 'Action' : 'Info'}
+              </span>
+              <span className="ns-model">{step.model}</span>
+            </div>
+            <div className="ns-right">
+              <p className="ns-action">{step.action}</p>
+              <p className="ns-rationale">{step.rationale}</p>
+            </div>
+          </div>
+        ))}
       </div>
     </>
   );
