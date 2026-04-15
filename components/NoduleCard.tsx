@@ -156,10 +156,10 @@ export default function NoduleCard({
                   value={nodule.pet}
                   onChange={(e) => onChange(index, 'pet', e.target.value as Nodule['pet'])}
                 >
-                  <option value="none">None / background</option>
-                  <option value="faint">Faint (SUV 1–2.5)</option>
-                  <option value="moderate">Moderate</option>
-                  <option value="intense">Intense (SUV &gt;5)</option>
+                  <option value="none">None (indiscernible from background)</option>
+                  <option value="faint">Faint (≤ mediastinal blood pool)</option>
+                  <option value="moderate">Moderate (&gt; mediastinal blood pool)</option>
+                  <option value="intense">Intense (markedly &gt; mediastinal blood pool)</option>
                 </select>
               </div>
               <div className="fld">

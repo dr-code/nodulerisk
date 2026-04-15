@@ -86,6 +86,13 @@ export interface FleischnerResult {
   cat: RiskCategory;
 }
 
+export interface NextStep {
+  priority: 'urgent' | 'standard' | 'info';
+  model: string;
+  action: string;
+  rationale: string;
+}
+
 // ── Edge data ──────────────────────────────────────────────────────────────
 
 export const EDGES: EdgeInfo[] = [
@@ -277,18 +284,18 @@ export function brockFor(n: Nodule, p: PatientInputs, noduleCount: number): numb
 }
 
 export function herderFor(n: Nodule, p: PatientInputs, ds: DataSwitches): number | null {
+  // Two-step Mayo+PET extension (Herder et al., Chest 2005).
+  // Step 1: compute Mayo clinical probability.
+  // Step 2: y = −4.739 + 3.691×mayo_prob + PET_term
+  // PET graded terms: faint=+2.322, moderate=+4.617, intense=+4.771 (none=0)
   if (!ds.pet) return null;
-  const sm = p.smoker !== 'never';
-  const petPos = (n.pet && n.pet !== 'none') || n.suv > 2.5;
-  return sig(
-    -4.739 +
-      0.068 * p.age +
-      0.819 * (sm ? 1 : 0) +
-      0.347 * (n.d / 10) +
-      1.482 * (n.sp ? 1 : 0) +
-      1.587 * (n.loc === 'upper' ? 1 : 0) +
-      3.691 * (petPos ? 1 : 0),
-  );
+  const mayo = mayoFor(n, p);
+  const petTerm =
+    n.pet === 'faint' ? 2.322
+    : n.pet === 'moderate' ? 4.617
+    : n.pet === 'intense' ? 4.771
+    : 0;
+  return sig(-4.739 + 3.691 * mayo + petTerm);
 }
 
 export function bimcLRsFor(n: Nodule, p: PatientInputs, ds: DataSwitches): BimcLRResult {
@@ -472,7 +479,8 @@ export function getWarnings(
     if (n.d < 4) w.push({ l: 'e', t: 'Diameter <4 mm — below typical validated range' });
     if (n.d > 30) w.push({ l: 'e', t: 'Diameter >30 mm — lesion is a mass' });
     if (n.nt !== 'solid') w.push({ l: 'w', t: 'Derived primarily in solid nodules; limited validation in subsolid lesions' });
-    if (p.priorcancer) w.push({ l: 'w', t: 'Original model excluded extrathoracic cancer <5 y; BTS guidelines permit inclusion' });
+    if (p.priorcancer) w.push({ l: 'w', t: 'Original model excluded extrathoracic cancer <5 y; BTS and validation studies (Al-Ameri et al.) now permit inclusion — enter as yes' });
+    if (n.pet === 'none') w.push({ l: 'w', t: 'FDG avidity = none (indiscernible from background): no PET term added. If scan truly negative, Herder result is driven entirely by Mayo clinical probability.' });
   }
 
   if (model === 'bimc') {
@@ -491,10 +499,128 @@ export function getWarnings(
   if (model === 'vdt') {
     const V = vdtFor(n, ds);
     if (V !== null && V < 0) w.push({ l: 'e', t: 'Negative VDT — nodule is shrinking, suggesting benign/inflammatory process' });
-    if (n.nt !== 'solid' && V !== null && V < 900) w.push({ l: 'w', t: 'Subsolid nodules have longer VDT (3–5 y); malignant kinetics thresholds differ from solid nodules' });
+    if (V !== null && V > 0 && V <= 400) w.push({ l: 'w', t: 'VDT <400 days: malignant kinetics. NELSON trial: 9.9% cancer probability (95% CI 6.9–14.1%). BTS: prompt diagnostic investigation.' });
+    if (V !== null && V > 400 && V <= 600) w.push({ l: 'w', t: 'VDT 400–600 days: intermediate growth. NELSON trial: 4.0% cancer probability (95% CI 1.8–8.3%). Reassess at next interval.' });
+    if (V !== null && V > 600) w.push({ l: 'w', t: 'VDT >600 days: slow growth, likely benign. NELSON trial: 0.8% cancer probability (95% CI 0.4–1.7%). BTS: consider discharge from surveillance.' });
+    if (n.nt !== 'solid' && V !== null && V < 900) w.push({ l: 'w', t: 'Subsolid nodules have longer VDT (3–5 y); 400-day threshold applies to solid components. New solid growth in a GGN is independently concerning regardless of VDT.' });
   }
 
   return w;
+}
+
+// ── Next steps (management pathways) ──────────────────────────────────────
+
+export function getNextSteps(
+  mayo: number,
+  brock: number,
+  herder: number | null,
+  vdt: number | null,
+  fleischner: FleischnerResult,
+): NextStep[] {
+  const steps: NextStep[] = [];
+
+  // ── Primary BTS pathway (Herder if PET available, else Brock) ──────────
+  if (herder !== null) {
+    if (herder >= 0.70) {
+      steps.push({
+        priority: 'urgent',
+        model: 'Herder (BTS)',
+        action: 'Surgical resection',
+        rationale: `Herder ${pct(herder)} exceeds 70% BTS threshold. Refer to thoracic surgery. A prior negative biopsy does not exclude malignancy and requires reassessment.`,
+      });
+    } else if (herder >= 0.10) {
+      steps.push({
+        priority: 'standard',
+        model: 'Herder (BTS)',
+        action: 'Tissue biopsy',
+        rationale: `Herder ${pct(herder)} falls in the 10–70% BTS intermediate range. Consider CT-guided biopsy, navigational bronchoscopy, or EBUS based on nodule location and local expertise.`,
+      });
+    } else {
+      steps.push({
+        priority: 'info',
+        model: 'Herder (BTS)',
+        action: 'CT surveillance',
+        rationale: `Herder ${pct(herder)} is below 10% BTS low-risk threshold. Continue surveillance CT (12-month volumetry or 2-year 2D measurement). Reassess if growth detected.`,
+      });
+    }
+  } else {
+    // No PET data — Brock gates PET referral
+    if (brock >= 0.10) {
+      steps.push({
+        priority: 'standard',
+        model: 'Brock (BTS)',
+        action: 'FDG-PET/CT recommended',
+        rationale: `Brock ${pct(brock)} ≥10% — BTS guideline: obtain FDG-PET/CT before final management decision. Then apply Herder score to guide surveillance, biopsy, or surgery.`,
+      });
+    } else {
+      steps.push({
+        priority: 'info',
+        model: 'Brock (BTS)',
+        action: 'CT surveillance',
+        rationale: `Brock ${pct(brock)} <10% — BTS low risk. CT surveillance program: 12-month volumetry (preferred) or 2-year 2D measurements. VDT >600 days supports discharge from surveillance.`,
+      });
+    }
+  }
+
+  // ── Mayo / ACCP parallel pathway ────────────────────────────────────────
+  if (mayo >= 0.65) {
+    steps.push({
+      priority: 'urgent',
+      model: 'Mayo (ACCP)',
+      action: 'Surgical evaluation',
+      rationale: `Mayo ${pct(mayo)} >65% — ACCP high risk. Refer for surgical resection if operatively fit. Obtain PET staging and pulmonary function assessment prior to resection.`,
+    });
+  } else if (mayo >= 0.05) {
+    steps.push({
+      priority: 'standard',
+      model: 'Mayo (ACCP)',
+      action: 'Functional imaging or biopsy',
+      rationale: `Mayo ${pct(mayo)} intermediate (5–65%) — ACCP: consider FDG-PET/CT or tissue sampling. At the low end, imaging first; at the high end, biopsy or resection. Clinical judgment required.`,
+    });
+  } else {
+    steps.push({
+      priority: 'info',
+      model: 'Mayo (ACCP)',
+      action: 'Watchful waiting',
+      rationale: `Mayo ${pct(mayo)} <5% — ACCP low risk. Watchful waiting is appropriate (Gould et al., Ann Intern Med 2003). Serial CT at 3 and 12 months can be considered for borderline cases.`,
+    });
+  }
+
+  // ── VDT (objective growth data, when available) ─────────────────────────
+  if (vdt !== null && vdt > 0) {
+    if (vdt <= 400) {
+      steps.push({
+        priority: 'urgent',
+        model: 'BTS VDT / NELSON trial',
+        action: 'Prompt tissue evaluation',
+        rationale: `VDT ${Math.round(vdt)} days (<400 d) — malignant kinetics. NELSON trial: 9.9% cancer probability (95% CI 6.9–14.1%). BTS: diagnostic investigation required (biopsy or resection). Significant growth ≥25% is independently sufficient.`,
+      });
+    } else if (vdt <= 600) {
+      steps.push({
+        priority: 'standard',
+        model: 'BTS VDT / NELSON trial',
+        action: 'Continue surveillance, consider PET',
+        rationale: `VDT ${Math.round(vdt)} days (400–600 d) — intermediate growth rate. NELSON trial: 4.0% cancer probability (95% CI 1.8–8.3%). Reassess at next interval; consider PET-CT if not already performed.`,
+      });
+    } else {
+      steps.push({
+        priority: 'info',
+        model: 'BTS VDT / NELSON trial',
+        action: 'Consider discharge from surveillance',
+        rationale: `VDT ${Math.round(vdt)} days (>600 d) — slow growth, likely benign. NELSON trial: 0.8% cancer probability (95% CI 0.4–1.7%). BTS: VDT >600 days supports discharge from surveillance program.`,
+      });
+    }
+  }
+
+  // ── Fleischner 2017 structural guidance ─────────────────────────────────
+  steps.push({
+    priority: fleischner.cat === 'high' ? 'urgent' : fleischner.cat === 'intc' ? 'standard' : 'info',
+    model: 'Fleischner 2017',
+    action: fleischner.rec,
+    rationale: fleischner.note,
+  });
+
+  return steps;
 }
 
 // ── Auto-select scoring ────────────────────────────────────────────────────
