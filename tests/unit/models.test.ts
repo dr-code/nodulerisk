@@ -32,6 +32,15 @@ const BASE_NODULE: Nodule = {
   d2: '2025-07-01',
   den: 'gt_neg30',
   enh: 'lt15',
+  vdtMethod: 'spherical',
+  v1: 0,
+  v2: 0,
+  x1: 0,
+  y1: 0,
+  z1: 0,
+  x2: 0,
+  y2: 0,
+  z2: 0,
 };
 
 const BASE_PATIENT: PatientInputs = {
